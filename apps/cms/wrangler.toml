@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 # --- Bindings ---
 [[d1_databases]]
 binding = "DB"
-database_name = "blog"
+database_name = "oln"
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 migrations_dir = "migrations"
 
