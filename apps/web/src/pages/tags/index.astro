@@ -1,0 +1,25 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { api } from '../../lib/api';
+
+export const prerender = false;
+
+const config = await api.config();
+const tags = await api.tags();
+---
+
+<Layout title="标签" config={config}>
+  <header class="page-head">
+    <h1>标签</h1>
+    {tags.length > 0 && <p class="page-sub">共 {tags.length} 个标签</p>}
+  </header>
+  {tags.length === 0 ? (
+    <div class="empty">暂无标签。</div>
+  ) : (
+    <div class="tags-cloud">
+      {tags.map((t) => (
+        <a class="tag-chip" href={`/tags/${t.slug}`}>{t.name}</a>
+      ))}
+    </div>
+  )}
+</Layout>

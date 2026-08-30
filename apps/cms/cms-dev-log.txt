@@ -1,0 +1,16 @@
+
+> blog-worker@0.1.0 dev
+> wrangler dev --local
+
+
+ ⛅️ wrangler 4.127.1
+────────────────────
+Your Worker has access to the following bindings:
+Binding                                             Resource          Mode
+env.CACHE (REPLACE_WITH_YOUR_KV_NAMESPACE_ID)       KV Namespace      local
+env.DB (blog)                                       D1 Database       local
+env.MEDIA (blog-media)                              R2 Bucket         local
+env.ASSETS                                          Assets            local
+
+⎔ Starting local server...
+[wrangler:info] Ready on http://127.0.0.1:8787

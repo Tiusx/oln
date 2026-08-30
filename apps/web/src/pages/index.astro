@@ -1,0 +1,72 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { api } from '../lib/api';
+import { formatDate, formatDateShort } from '../lib/markdown';
+
+export const prerender = false;
+
+const config = await api.config();
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
+const limit = 10;
+const data = await api.posts(page, limit);
+const posts = data.items;
+const totalPages = Math.max(1, Math.ceil(data.total / limit));
+const base = Astro.url.pathname;
+
+const siteName = config.basic.siteName || 'Blog';
+const tagline = config.basic.tagline;
+const title = page > 1 ? `第 ${page} 页` : '';
+
+// Group posts by year, years sorted desc
+const postsByYear = posts.reduce((acc, post) => {
+  const year = new Date(post.publishedAt).getFullYear().toString();
+  if (!acc[year]) acc[year] = [];
+  acc[year].push(post);
+  return acc;
+}, {} as Record<string, typeof posts>);
+const sortedYears = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
+---
+<Layout title={title} description={tagline || config.seo.description} config={config}>
+  {page === 1 && (tagline || siteName) && (
+    <header class="page-head">
+      {tagline && <p class="page-sub">{tagline}</p>}
+    </header>
+  )}
+
+  {posts.length === 0 ? (
+    <div class="empty">
+      <p>暂无文章，敬请期待。</p>
+    </div>
+  ) : (
+    <div class="post-list">
+      {sortedYears.map((year) => {
+        const yearPosts = postsByYear[year];
+        return (
+          <section class="post-year">
+            <h3 class="year-title">{year}</h3>
+            <ul class="year-posts">
+              {yearPosts.map((post) => (
+                <li class="post-item">
+                  <time class="post-date" datetime={post.publishedAt ?? undefined}>
+                    {formatDateShort(post.publishedAt, config.basic.language)}
+                  </time>
+                  <h4 class="post-title">
+                    <a href={`/posts/${post.slug}`}>{post.pinned && <span class="pin-badge">置顶</span>}{post.title}</a>
+                  </h4>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  )}
+
+  {totalPages > 1 && (
+    <nav class="pagination">
+      {page > 1 && <a href={`${base}?page=${page - 1}`}>« 上一页</a>}
+      <span class="page-info">第 {page} / {totalPages} 页</span>
+      {page < totalPages && <a href={`${base}?page=${page + 1}`}>下一页 »</a>}
+    </nav>
+  )}
+</Layout>

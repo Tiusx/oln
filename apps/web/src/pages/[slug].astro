@@ -1,0 +1,25 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { api } from '../lib/api';
+
+export const prerender = false;
+
+// Custom pages (about, contact, etc.) backed by the CMS "pages" content type.
+// Admin sets showInMenu to expose them in the nav.
+const { slug } = Astro.params;
+const config = await api.config();
+const page = await api.page(slug!);
+
+if (!page) {
+  return Astro.redirect('/404');
+}
+
+const html = page.html;
+---
+
+<Layout title={page.title} config={config}>
+  <article class="post">
+    <h1 style="margin-top:0">{page.title}</h1>
+    <div set:html={html} />
+  </article>
+</Layout>

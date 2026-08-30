@@ -1,0 +1,149 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { api } from '../lib/api';
+
+export const prerender = false;
+
+const config = await api.config();
+const links = await api.links();
+---
+
+<Layout title="友链" description="我的好友交换链接" config={config}>
+  <header class="page-head">
+    <h1>友链</h1>
+    {links.length > 0 && <p class="page-sub">已收录 {links.length} 位好友</p>}
+  </header>
+
+  <main class="content">
+    {links.length === 0 ? (
+      <div class="empty">暂无友链。</div>
+    ) : (
+      <section class="links-grid">
+        {links.map((l) => (
+          <a class="link-card" href={l.url} target="_blank" rel="noopener">
+            {l.avatar ? (
+              <img class="link-avatar" src={l.avatar} alt="" loading="lazy" />
+            ) : (
+              <span class="link-avatar link-avatar-fallback">{l.name?.charAt(0) || '?'}</span>
+            )}
+            <span class="link-body">
+              <span class="link-name">{l.name}</span>
+              {l.description && <span class="link-desc">{l.description}</span>}
+            </span>
+          </a>
+        ))}
+      </section>
+    )}
+
+    <section class="apply-section">
+      <div class="apply-head">
+        <h2>申请友链</h2>
+        <p>欢迎交换友链，请在下方评论区留言提交：<strong>站点名称</strong> + <strong>链接</strong> + <strong>一句简介</strong>，我会尽快审核并收录。</p>
+      </div>
+      <div class="waline-wrap">
+        <div id="waline"></div>
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<script>
+  import { init } from '@waline/client';
+  import '@waline/client/style';
+
+  const walineServerURL = import.meta.env.PUBLIC_WALINE_SERVER_URL || 'https://waline.tius.cn';
+
+  if (document.getElementById('waline')) {
+    init({
+      el: '#waline',
+      serverURL: walineServerURL,
+      path: '/links',
+      lang: 'zh-CN',
+      dark: 'html[data-theme="dark"]',
+      pageview: true,
+      comment: true,
+    });
+  }
+</script>
+
+<style>
+  .links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 14px;
+  }
+  .link-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-elevated);
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    text-decoration: none !important;
+  }
+  .link-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+  .link-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .link-avatar-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .link-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .link-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .link-card:hover .link-name { color: var(--accent); }
+  .link-desc {
+    color: var(--fg-muted);
+    font-size: 13px;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .apply-section {
+    margin-top: 48px;
+    padding-top: 40px;
+    border-top: 1px solid var(--border);
+  }
+  .apply-head h2 {
+    font-size: 20px;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .apply-head p {
+    color: var(--fg-muted);
+    font-size: 14px;
+    margin: 0 0 20px;
+  }
+  .waline-wrap {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+</style>

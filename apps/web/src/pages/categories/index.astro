@@ -1,0 +1,27 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { api } from '../../lib/api';
+
+export const prerender = false;
+
+const config = await api.config();
+const categories = await api.categories();
+---
+
+<Layout title="分类" config={config}>
+  <header class="page-head">
+    <h1>分类</h1>
+  </header>
+  {categories.length === 0 ? (
+    <div class="empty">暂无分类。</div>
+  ) : (
+    <ul class="section-list">
+      {categories.map((c) => (
+        <li>
+          <a href={`/categories/${c.slug}`}>{c.name}</a>
+          {c.description && <div class="desc">{c.description}</div>}
+        </li>
+      ))}
+    </ul>
+  )}
+</Layout>

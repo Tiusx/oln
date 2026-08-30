@@ -1,0 +1,90 @@
+---
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import type { SiteConfig } from '../lib/api';
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+  config: SiteConfig;
+  currentPath?: string;
+  type?: 'website' | 'article';
+  image?: string;
+  canonical?: string;
+}
+
+const {
+  title,
+  description,
+  config,
+  currentPath = Astro.url.pathname,
+  type = 'website',
+  image,
+  canonical,
+} = Astro.props;
+const siteName = config.basic.siteName || 'Blog';
+const fullTitle = title ? `${title} - ${siteName}` : siteName;
+const favicon = config.basic.favicon;
+const seoDescription = description || config.seo.description;
+const ogImage = image || config.seo.ogImage || config.basic.logo || undefined;
+const pageUrl = canonical || (Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.url.href);
+const siteUrl = (Astro.site?.href || '').replace(/\/$/, '') || '/';
+const ogLang = config.basic.language || 'zh-CN';
+---
+
+<!doctype html>
+<html lang={ogLang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content="Astro" />
+    <script>
+      // Prevent theme flash: apply stored/system theme before first paint.
+      (function () {
+        try {
+          var t = localStorage.getItem('blog-theme');
+          if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+    </script>
+    <title>{fullTitle}</title>
+    <meta name="description" content={seoDescription} />
+    {favicon && <link rel="icon" href={favicon} />}
+    <link rel="canonical" href={pageUrl} />
+    <link rel="alternate" type="application/rss+xml" title={siteName} href="/rss.xml" />
+    {config.seo.keywords && <meta name="keywords" content={config.seo.keywords} />}
+    {config.seo.enableRobots && <meta name="robots" content="index, follow" />}
+
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={seoDescription || undefined} />
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:type" content={type} />
+    <meta property="og:locale" content={ogLang} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={seoDescription || undefined} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    {config.inject.headHtml && <Fragment set:html={config.inject.headHtml} />}
+    {config.features.analytics.enabled && config.features.analytics.webAnalyticsToken && (
+      <script
+        defer
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={`{"token": "${config.features.analytics.webAnalyticsToken}"}`}
+      />
+    )}
+  </head>
+  <body>
+    <Header config={config} currentPath={currentPath} />
+    <main class="site-body">
+      <slot />
+    </main>
+    <Footer config={config} />
+    {config.inject.footHtml && <Fragment set:html={config.inject.footHtml} />}
+  </body>
+</html>

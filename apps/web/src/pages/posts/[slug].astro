@@ -1,0 +1,220 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { api } from '../../lib/api';
+import { formatDate, readingTime } from '../../lib/markdown';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+const config = await api.config();
+const post = await api.post(slug!);
+
+if (!post) {
+  return Astro.redirect('/404');
+}
+
+const html = post.html || '';
+
+// --- TOC: extract h2/h3 from rendered HTML (CMS adds id="heading-...") ---
+const headings: { level: number; id: string; text: string }[] = [];
+for (const match of html.matchAll(/<h([23]) id="([^"]+)">(.*?)<\/h\1>/g)) {
+  const text = match[3]
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+  headings.push({ level: Number(match[1]), id: match[2], text });
+}
+
+// --- Prev / next by chronology (published order) ---
+let prevPost: { slug: string; title: string } | null = null;
+let nextPost: { slug: string; title: string } | null = null;
+try {
+  const list = await api.posts(1, 50);
+  const ordered = list.items
+    .filter((p) => p.slug !== post.slug)
+    .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
+  const idx = ordered.findIndex((p) => p.slug === post.slug);
+  if (idx === -1) {
+    // current post not in fetched window; fall back to first fetched
+    if (ordered.length) {
+      // compare against list containing current to name prev/next
+      const all = [...list.items].sort((a, b) =>
+        (b.publishedAt || '').localeCompare(a.publishedAt || ''),
+      );
+      const cur = all.findIndex((p) => p.slug === post.slug);
+      if (cur > 0) prevPost = { slug: all[cur - 1].slug, title: all[cur - 1].title };
+      if (cur !== -1 && cur < all.length - 1)
+        nextPost = { slug: all[cur + 1].slug, title: all[cur + 1].title };
+    }
+  } else {
+    if (idx < ordered.length - 1)
+      nextPost = { slug: ordered[idx + 1].slug, title: ordered[idx + 1].title };
+    if (idx > 0) prevPost = { slug: ordered[idx - 1].slug, title: ordered[idx - 1].title };
+  }
+} catch {
+  /* ignore */
+}
+
+const reading = readingTime(html.replace(/<[^>]+>/g, ' '), true);
+const cover = post.coverImage;
+const comments = config.features.comments;
+const author = config.author;
+const siteUrl = (Astro.site?.href || '').replace(/\/$/, '');
+const postUrl = `${siteUrl}/posts/${post.slug}`;
+---
+
+<Layout
+  title={post.seoTitle || post.title}
+  description={(post.seoDescription || post.excerpt) ?? undefined}
+  config={config}
+  type="article"
+  image={cover ?? undefined}
+  canonical={postUrl}
+>
+  <article class="article">
+    <header class="article-head">
+      {cover && (
+        <div class="article-cover">
+          <img src={cover} alt={post.title} />
+        </div>
+      )}
+      <h1>{post.pinned && <span class="pin-badge">置顶</span>}{post.title}</h1>
+      <div class="article-meta">
+        <time datetime={post.publishedAt ?? undefined}>{formatDate(post.publishedAt, config.basic.language)}</time>
+        {post.updatedAt && post.updatedAt !== post.publishedAt && (
+          <span class="edit-date">(更新于 {formatDate(post.updatedAt, config.basic.language)})</span>
+        )}
+        {post.category && <><span class="dot">·</span><a href={`/categories/${post.category.slug}`}>{post.category.name}</a></>}
+        {reading && <><span class="dot">·</span><span class="reading-time">约 {reading} 阅读</span></>}
+        {(comments.enabled && post.commentsEnabled !== false) && (
+          <>
+            <span class="dot">·</span>
+            <span class="meta-stat">浏览 <span class="waline-pageview-count" data-path={`/posts/${post.slug}`} />次</span>
+            <span class="dot">·</span>
+            <span class="meta-stat">评论 <span class="waline-comment-count" data-path={`/posts/${post.slug}`} /></span>
+          </>
+        )}
+      </div>
+      {post.tags.length > 0 && (
+        <div class="article-tags">
+          {post.tags.map((t) => (
+            <a class="tag-chip" href={`/tags/${t.slug}`}>{t.name}</a>
+          ))}
+        </div>
+      )}
+    </header>
+
+    {headings.length > 0 && (
+      <nav class="toc" aria-label="目录">
+        <p class="toc-title">目录</p>
+        <ul>
+          {headings.map((h) => (
+            <li class={`toc-item lvl-${h.level}`}>
+              <a href={`#${h.id}`}>{h.text}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )}
+
+    <div class="post-content" set:html={html} />
+
+    <footer class="post-foot">
+      {author.name && (
+        <div class="author-box">
+          {author.avatar && <img class="author-avatar" src={author.avatar} alt={author.name} />}
+          <div>
+            <div class="author-name">{author.name}</div>
+            {author.bio && <div class="author-bio">{author.bio}</div>}
+          </div>
+        </div>
+      )}
+    </footer>
+
+    {(prevPost || nextPost) && (
+      <nav class="post-nav" aria-label="上一篇 / 下一篇">
+        {prevPost ? (
+          <a href={`/posts/${prevPost.slug}`}>
+            <div class="nav-label">上一篇</div>
+            <div class="nav-title">{prevPost.title}</div>
+          </a>
+        ) : <span />}
+        {nextPost ? (
+          <a class="next" href={`/posts/${nextPost.slug}`}>
+            <div class="nav-label">下一篇</div>
+            <div class="nav-title">{nextPost.title}</div>
+          </a>
+        ) : <span />}
+      </nav>
+    )}
+
+    {(comments.enabled && post.commentsEnabled !== false) && (
+      <section class="comments" id="comments">
+        <h2 class="comments-title">评论</h2>
+        {comments.provider === 'giscus' && comments.giscusRepo && (
+          <script
+            src="https://giscus.app/client.js"
+            data-repo={comments.giscusRepo}
+            data-repo-id={comments.giscusRepoId}
+            data-category={comments.giscusCategory}
+            data-category-id={comments.giscusCategoryId}
+            data-mapping="pathname"
+            data-strict="0"
+            data-reactions-enabled="1"
+            data-emit-metadata="0"
+            data-input-position="bottom"
+            data-theme="preferred_color_scheme"
+            data-lang={config.basic.language === 'zh-CN' ? 'zh-CN' : 'en'}
+            data-loading="lazy"
+            crossorigin="anonymous"
+            async
+          />
+        )}
+        {comments.provider === 'utterances' && (comments.utterancesRepo || comments.giscusRepo) && (
+          <script
+            src="https://utteranc.es/client.js"
+            data-repo={comments.utterancesRepo || comments.giscusRepo}
+            data-issue-term="pathname"
+            data-theme="preferred_color_scheme"
+            data-label="comments"
+            crossorigin="anonymous"
+            async
+          />
+        )}
+        {comments.provider === 'waline' && (
+          <div
+            id="waline"
+            data-waline-path={`/posts/${post.slug}`}
+          ></div>
+        )}
+        {!['giscus', 'utterances', 'waline'].includes(comments.provider) && (
+          <p class="muted">评论系统尚未配置（请在后台"评论系统"中配置评论）。</p>
+        )}
+      </section>
+    )}
+  </article>
+</Layout>
+
+<script>
+  import { init } from '@waline/client';
+  import '@waline/client/style';
+
+  const walineServerURL = import.meta.env.PUBLIC_WALINE_SERVER_URL || 'https://waline.tius.cn';
+
+  const el = document.getElementById('waline');
+  if (el) {
+    init({
+      el: '#waline',
+      serverURL: walineServerURL,
+      path: el.dataset.walinePath || window.location.pathname,
+      lang: document.documentElement.lang || 'zh-CN',
+      dark: 'html[data-theme="dark"]',
+      pageview: true,
+      comment: true,
+    });
+  }
+</script>

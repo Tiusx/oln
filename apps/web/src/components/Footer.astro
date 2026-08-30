@@ -1,0 +1,21 @@
+---
+import type { SiteConfig } from '../lib/api';
+
+interface Props {
+  config: SiteConfig;
+}
+
+const { config } = Astro.props;
+const footerText = config.footer.footerText;
+const beian = config.footer.beian;
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="inner">
+    <div>
+      {footerText || `© ${year} ${config.basic.siteName || 'Blog'}`}
+      {beian && <div><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">{beian}</a></div>}
+    </div>
+  </div>
+</footer>

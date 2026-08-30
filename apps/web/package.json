@@ -1,0 +1,17 @@
+{
+  "name": "blog-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^12.2.1",
+    "@waline/client": "^3.15.2",
+    "astro": "^5.7.0"
+  }
+}

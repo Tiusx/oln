@@ -1,0 +1,21 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { api } from '../lib/api';
+
+export const prerender = false;
+
+const config = await api.config();
+---
+
+<Layout title="关于" config={config}>
+  <header class="page-head">
+    <h1>关于</h1>
+    <p class="page-sub">分享中性·蓝色的技术博客世界</p>
+  </header>
+
+  <main class="content">
+    <div class="about-card">
+      <p>{config.basic.tagline || '致力于分享有价值的技术内容与生活感悟.'}</p>
+    </div>
+  </main>
+</Layout>

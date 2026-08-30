@@ -1,0 +1,97 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { api } from '../lib/api';
+
+export const prerender = false;
+
+const config = await api.config();
+---
+
+<Layout title="一言" config={config}>
+  <header class="page-head">
+    <h1>一言</h1>
+    <p class="page-sub">随机一句语录</p>
+  </header>
+
+  <main class="content">
+    <div class="hitokoto-card">
+      <blockquote id="hitokoto-content">加载中...</blockquote>
+      <cite id="hitokoto-creator">— 语录生成中</cite>
+    </div>
+
+    <div class="hitokoto-actions">
+      <button id="refreshBtn" class="btn" onclick="refreshHitokoto()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="8" y1="8" x2="16" y2="16"/>
+          <line x1="16" y1="8" x2="8" y2="16"/>
+        </svg>
+        刷新
+      </button>
+    </div>
+  </main>
+</Layout>
+
+<script>
+function refreshHitokoto() {
+  fetch('/api/public/hitokoto')
+    .then(res => res.json())
+    .then(data => {
+      const contentEl = document.getElementById('hitokoto-content');
+      const creatorEl = document.getElementById('hitokoto-creator');
+      contentEl.textContent = data.data.content;
+      creatorEl.textContent = data.data.creator ? `— ${data.data.creator}` : '— 语录生成中';
+    })
+    .catch(err => {
+      console.error('Failed to fetch hitokoto:', err);
+      document.getElementById('hitokoto-content').textContent = '语录加载失败';
+    });
+}
+
+// Initial load
+refreshHitokoto();
+</script>
+
+<style>
+.hitokoto-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  margin-bottom: 24px;
+  max-width: 720px;
+}
+.hitokoto-card blockquote {
+  font-size: 24px;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 0 0 16px;
+  quotes: '\201C' '\201D' '\2018' '\2019';
+}
+.hitokoto-card blockquote::before {
+  content: open-quote;
+  font-size: 40px;
+  color: var(--accent);
+  line-height: 1;
+  margin-right: 8px;
+  vertical-align: -0.5em;
+}
+.hitokoto-card blockquote::after {
+  content: close-quote;
+  font-size: 40px;
+  color: var(--accent);
+  line-height: 1;
+  margin-left: 8px;
+  vertical-align: -0.5em;
+}
+.hitokoto-card cite {
+  color: var(--muted);
+  font-style: normal;
+  display: block;
+}
+.hitokoto-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+</style>
