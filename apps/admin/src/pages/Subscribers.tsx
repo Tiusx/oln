@@ -46,6 +46,7 @@ export default function Subscribers() {
           </tbody>
         </table>
       </div>
+      {items.length === 0 && <p className="muted flex" style={{ marginTop: 12 }}>暂无订阅者。</p>}
     </div>
   );
 }

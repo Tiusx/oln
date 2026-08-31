@@ -134,7 +134,7 @@ export default function PostEditor() {
     setTagIds((prev) => (prev.includes(tid) ? prev.filter((x) => x !== tid) : [...prev, tid]));
   }
 
-  if (loading) return <p className="muted">加载中...</p>;
+  if (loading) return <p className="muted flex"><span className="spinner" /> 加载中…</p>;
 
   const statusMeta = STATUS_META[status] || STATUS_META.draft;
 

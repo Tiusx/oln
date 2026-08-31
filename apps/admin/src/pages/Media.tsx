@@ -63,7 +63,7 @@ export default function Media() {
           <input type="text" className="field-input" value={prefix} onChange={(e) => setPrefix(e.target.value)} placeholder="路径前缀筛选（如：img/）" />
           <button className="secondary" onClick={() => setPrefix('')}>清除</button>
           <label className="btn" style={{ cursor: 'pointer' }}>
-            {uploading ? '上传中...' : '上传文件'}
+            {uploading ? <><span className="spinner-sm" /> 上传中...</> : '上传文件'}
             <input type="file" multiple hidden onChange={(e) => onUpload(e.target.files)} />
           </label>
         </div>
@@ -89,7 +89,7 @@ export default function Media() {
             </div>
           </div>
         ))}
-        {items.length === 0 && <p className="muted" style={{ gridColumn: '1 / -1' }}>暂无文件，点击上方上传。</p>}
+        {items.length === 0 && <div className="state-box" style={{ gridColumn: '1 / -1' }}>暂无文件，点击上方上传。</div>}
       </div>
     </div>
   );

@@ -14,7 +14,7 @@ export default function Author() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  if (!config) return <p className="muted">加载中...</p>;
+  if (!config) return <p className="muted flex"><span className="spinner" /> 加载中…</p>;
 
   const author = config.author || { name: '', avatar: '', bio: '', socials: [] };
   const setAuthor = (fn: (a: any) => any) => setConfig((p: any) => ({ ...p, author: fn(p.author || {}) }));
@@ -46,17 +46,19 @@ export default function Author() {
       </div>
 
       <div className="panel">
-        <h3 style={{ margin: '0 0 10px' }}>基本信息</h3>
-        <div className="row">
-          <div style={{ flex: 1 }}><label>作者名</label><input className="field-input" value={author.name} onChange={(e) => setAuthor(a => ({ ...a, name: e.target.value }))} /></div>
-          <div style={{ flex: 1 }}><label>头像 URL</label><input className="field-input" value={author.avatar} onChange={(e) => setAuthor(a => ({ ...a, avatar: e.target.value }))} /></div>
+        <h3 className="panel-title">基本信息</h3>
+        <div className="field-grid">
+          <div className="field"><label className="field-label" htmlFor="author-name">作者名</label><input id="author-name" className="field-input" value={author.name} onChange={(e) => setAuthor(a => ({ ...a, name: e.target.value }))} /></div>
+          <div className="field"><label className="field-label" htmlFor="author-avatar">头像 URL</label><input id="author-avatar" className="field-input" value={author.avatar} onChange={(e) => setAuthor(a => ({ ...a, avatar: e.target.value }))} /></div>
         </div>
-        <label style={{ display: 'block', marginTop: 12 }}>简介</label>
-        <textarea className="field-input" value={author.bio} onChange={(e) => setAuthor(a => ({ ...a, bio: e.target.value }))} rows={4} style={{ marginTop: 4 }} />
+        <div className="field">
+          <label className="field-label" htmlFor="author-bio">简介</label>
+          <textarea id="author-bio" className="field-input" value={author.bio} onChange={(e) => setAuthor(a => ({ ...a, bio: e.target.value }))} rows={4} />
+        </div>
       </div>
 
       <div className="panel" style={{ marginTop: 20 }}>
-        <h3 style={{ margin: '0 0 10px' }}>社交链接</h3>
+        <h3 className="panel-title">社交链接</h3>
         {(author.socials || []).map((s: any, i: number) => (
           <div key={i} className="flex" style={{ marginBottom: 8 }}>
             <input type="text" className="field-input" value={s.label} placeholder="平台" style={{ width: 140 }} onChange={(e) => updateSocial(i, { label: e.target.value })} />

@@ -82,7 +82,7 @@ function Basic({ set, c }: { set: SetFn; c: Settings }) {
       <Field label="标语" value={c.basic.tagline} onChange={(v) => set((p) => ({ ...p, basic: { ...p.basic, tagline: v } }))} />
       <Field label="Logo URL" value={c.basic.logo} onChange={(v) => set((p) => ({ ...p, basic: { ...p.basic, logo: v } }))} />
       <Field label="Favicon URL" value={c.basic.favicon} onChange={(v) => set((p) => ({ ...p, basic: { ...p.basic, favicon: v } }))} />
-      <div className="row">
+      <div className="field-grid">
         <div><Field label="语言" value={c.basic.language} onChange={(v) => set((p) => ({ ...p, basic: { ...p.basic, language: v } }))} /></div>
         <div><Field label="时区" value={c.basic.timezone} onChange={(v) => set((p) => ({ ...p, basic: { ...p.basic, timezone: v } }))} /></div>
       </div>
@@ -116,10 +116,10 @@ function Footer({ set, c }: { set: SetFn; c: Settings }) {
 function Inject({ set, c }: { set: SetFn; c: Settings }) {
   return (
     <F>
-      <label>head 注入 HTML</label>
-      <textarea value={c.inject.headHtml} onChange={(e) => set((p) => ({ ...p, inject: { ...p.inject, headHtml: e.target.value } }))} />
-      <label>脚部注入 HTML</label>
-      <textarea value={c.inject.footHtml} onChange={(e) => set((p) => ({ ...p, inject: { ...p.inject, footHtml: e.target.value } }))} />
+      <label className="field-label">head 注入 HTML</label>
+      <textarea className="field-input" style={{ fontFamily: 'var(--mono)', fontSize: 13 }} value={c.inject.headHtml || ''} onChange={(e) => set((p) => ({ ...p, inject: { ...p.inject, headHtml: e.target.value } }))} />
+      <label className="field-label" style={{ marginTop: 16 }}>脚部注入 HTML</label>
+      <textarea className="field-input" style={{ fontFamily: 'var(--mono)', fontSize: 13 }} value={c.inject.footHtml || ''} onChange={(e) => set((p) => ({ ...p, inject: { ...p.inject, footHtml: e.target.value } }))} />
     </F>
   );
 }
@@ -139,18 +139,19 @@ function Features({ set, c }: { set: SetFn; c: Settings }) {
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <>
-      <label>{label}</label>
+    <div className="field">
+      <label className="field-label">{label}</label>
       <input type="text" className="field-input" value={value || ''} onChange={(e) => onChange(e.target.value)} />
-    </>
+    </div>
   );
 }
 
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '8px 0', fontWeight: 400 }}>
-      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} style={{ width: 'auto' }} />
-      {label}
+    <label className="switch" style={{ margin: '8px 0' }}>
+      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="track"><span className="thumb" /></span>
+      <span>{label}</span>
     </label>
   );
 }

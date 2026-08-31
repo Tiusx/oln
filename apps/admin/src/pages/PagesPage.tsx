@@ -53,7 +53,7 @@ export default function PagesPage() {
       )}
 
       <section className="panel">
-        {pages.length === 0 && <p className="muted">还没有页面，点击右上角新建～</p>}
+        {pages.length === 0 && <div className="state-box">还没有页面，点击右上角新建～</div>}
         <div className="page-list">
           {pages.map((p) => <PageRow key={p.id} page={p} onSaved={load} />)}
         </div>

@@ -80,7 +80,7 @@ export default function Taxonomy() {
             <button className="btn" onClick={addCategory}>添加</button>
           </div>
           <div className="cat-list">
-            {categories.length === 0 && <p className="muted">还没有分类，添加一个吧～</p>}
+            {categories.length === 0 && <div className="state-box" style={{ padding: '24px 12px' }}>还没有分类，添加一个吧～</div>}
             {categories.map((c) => (
               <div className="cat-item" key={c.id}>
                 <span className="cat-name">{c.name}</span>
@@ -105,7 +105,7 @@ export default function Taxonomy() {
             <button className="btn" onClick={addTag}>添加</button>
           </div>
           <div className="flex wrap" style={{ marginTop: 6 }}>
-            {tags.length === 0 && <p className="muted">还没有标签，添加一个吧～</p>}
+            {tags.length === 0 && <div className="state-box" style={{ padding: '24px 12px', width: '100%' }}>还没有标签，添加一个吧～</div>}
             {tags.map((t) => (
               <span key={t.id} className="chip">
                 #{t.name}

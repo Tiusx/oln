@@ -98,7 +98,7 @@ export default function Storage() {
 
       <div className="panel">
         <Field label="存储提供商" value={config.provider} onChange={(v) => setConfig(p => ({ ...p, provider: v as any }))}>
-          <select>
+          <select className="field-input">
             <option value="local">本地存储</option>
             <option value="r2">Cloudflare R2</option>
             <option value="github">GitHub Pages</option>
@@ -143,14 +143,14 @@ export default function Storage() {
 // 修复后的 Field 组件
 function Field({ label, value, onChange, children, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; children?: React.ReactNode; type?: string; placeholder?: string }) {
   return (
-    <>
-      <label>{label}</label>
+    <div className="field">
+      <label className="field-label">{label}</label>
       {children ? (
         // 直接渲染 children（已经包含 <select>），不再包裹
         <>{children}</>
       ) : (
         <input type={type} className="field-input" value={value || ''} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
       )}
-    </>
+    </div>
   );
 }

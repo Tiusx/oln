@@ -21,7 +21,7 @@ export default function Navigation() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  if (!config) return <p className="muted">加载中...</p>;
+  if (!config) return <p className="muted flex"><span className="spinner" /> 加载中…</p>;
 
   const nav = config.nav || { builtin: { show: true, links: [] }, menu: [] };
   const setNav = (fn: (n: any) => any) => setConfig((p: any) => ({ ...p, nav: fn(p.nav || {}) }));
@@ -62,9 +62,9 @@ export default function Navigation() {
       </div>
 
       <div className="panel">
-        <h3 style={{ margin: '0 0 10px' }}>内置导航</h3>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 12px', fontWeight: 600, cursor: 'pointer' }}>
-          <input type="checkbox" checked={builtin.show !== false} onChange={(e) => updateBuiltin(b => ({ ...b, show: e.target.checked }))} style={{ width: 'auto' }} />
+        <h3 className="panel-title">内置导航</h3>
+        <label className="field-checkbox-label" style={{ margin: '8px 0 12px', fontWeight: 600 }}>
+          <input type="checkbox" checked={builtin.show !== false} onChange={(e) => updateBuiltin(b => ({ ...b, show: e.target.checked }))} />
           显示默认导航（友链 / 关于 / 留言板 / 一言）
         </label>
 
@@ -72,8 +72,8 @@ export default function Navigation() {
           <div key={i} className="flex" style={{ marginBottom: 8 }}>
             <input type="text" className="field-input" value={link.label} placeholder="名称" style={{ width: 140 }} onChange={(e) => updateBuiltinLink(i, { label: e.target.value })} />
             <input type="text" className="field-input" value={link.url} placeholder="/链接" style={{ width: 180 }} onChange={(e) => updateBuiltinLink(i, { url: e.target.value })} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 400, cursor: 'pointer' }}>
-              <input type="checkbox" checked={link.enabled !== false} onChange={(e) => updateBuiltinLink(i, { enabled: e.target.checked })} style={{ width: 'auto' }} />
+            <label className="field-checkbox-label">
+              <input type="checkbox" checked={link.enabled !== false} onChange={(e) => updateBuiltinLink(i, { enabled: e.target.checked })} />
               显示
             </label>
           </div>
@@ -81,13 +81,13 @@ export default function Navigation() {
       </div>
 
       <div className="panel" style={{ marginTop: 20 }}>
-        <h3 style={{ margin: '0 0 10px' }}>自定义菜单</h3>
+        <h3 className="panel-title">自定义菜单</h3>
         {menu.map((item: any, i: number) => (
           <div key={i} className="flex" style={{ marginBottom: 8 }}>
             <input type="text" className="field-input" value={item.label} placeholder="名称" style={{ width: 140 }} onChange={(e) => updateMenuItem(i, { label: e.target.value })} />
             <input type="text" className="field-input" value={item.url} placeholder="/链接" onChange={(e) => updateMenuItem(i, { url: e.target.value })} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 400, cursor: 'pointer' }}>
-              <input type="checkbox" checked={item.newWindow} onChange={(e) => updateMenuItem(i, { newWindow: e.target.checked })} style={{ width: 'auto' }} />
+            <label className="field-checkbox-label">
+              <input type="checkbox" checked={item.newWindow} onChange={(e) => updateMenuItem(i, { newWindow: e.target.checked })} />
               新窗口
             </label>
             <button className="danger" onClick={() => removeMenuItem(i)}>×</button>

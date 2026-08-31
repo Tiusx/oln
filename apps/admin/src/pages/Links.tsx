@@ -74,7 +74,7 @@ export default function Links() {
 
       <section className="panel">
         <h3 className="panel-title">友链列表</h3>
-        {links.length === 0 && <p className="muted">还没有友链，添加一个吧～</p>}
+        {links.length === 0 && <div className="state-box">还没有友链，添加一个吧～</div>}
         <div className="link-list">
           {links.map((l) => (
             <div className="link-card" key={l.id}>

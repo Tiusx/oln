@@ -21,7 +21,7 @@ export default function Comments() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  if (!config) return <p className="muted">加载中...</p>;
+  if (!config) return <p className="muted flex"><span className="spinner" /> 加载中…</p>;
 
   const c = config.features.comments;
   const setC = (fn: (prev: any) => any) =>
@@ -46,12 +46,14 @@ export default function Comments() {
       <div className="panel">
         <Check label="启用评论" checked={c.enabled} onChange={(v) => setC((p) => ({ ...p, enabled: v }))} />
 
-        <label>评论供应商</label>
-        <select value={c.provider} onChange={(e) => setC((p) => ({ ...p, provider: e.target.value }))}>
-          {PROVIDERS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <div className="field">
+          <label className="field-label" htmlFor="comments-provider">评论供应商</label>
+          <select id="comments-provider" className="field-input" value={c.provider} onChange={(e) => setC((p) => ({ ...p, provider: e.target.value }))}>
+            {PROVIDERS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
 
         <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
           {PROVIDERS.find((p) => p.value === c.provider)?.label} 所需参数将在下方显示。
@@ -99,17 +101,17 @@ export default function Comments() {
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <>
-      <label>{label}</label>
+    <div className="field">
+      <label className="field-label">{label}</label>
       <input type="text" className="field-input" value={value || ''} onChange={(e) => onChange(e.target.value)} />
-    </>
+    </div>
   );
 }
 
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '8px 0', fontWeight: 400 }}>
-      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} style={{ width: 'auto' }} />
+    <label className="field-checkbox-label" style={{ margin: '8px 0' }}>
+      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
       {label}
     </label>
   );

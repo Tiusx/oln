@@ -33,28 +33,30 @@ export default function AuthorPage() {
           <button onClick={save} className="btn btn-primary">保存</button>
         </div>
 
-        <div className="panel">
-          <div>
-            <label>作者名</label>
-            <input type="text" value={author.name} readOnly />
+        <div className="field-grid">
+          <div className="field">
+            <label className="field-label" htmlFor="ap-name">作者名</label>
+            <input id="ap-name" type="text" className="field-input" value={author.name} readOnly />
           </div>
-          <div>
-            <label>头像 URL</label>
-            <input type="text" value={author.avatar} readOnly />
+          <div className="field">
+            <label className="field-label" htmlFor="ap-avatar">头像 URL</label>
+            <input id="ap-avatar" type="text" className="field-input" value={author.avatar} readOnly />
           </div>
-          <label>简介</label>
-          <input type="text" value={author.bio} readOnly />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="ap-bio">简介</label>
+          <input id="ap-bio" type="text" className="field-input" value={author.bio} readOnly />
         </div>
       </div>
 
-      <h3 style={{ margin: '16px 0 8px' }}>社交链接</h3>
+      <h3 className="panel-title" style={{ marginTop: 16 }}>社交链接</h3>
       {author.socials.map((s: any, i: number) => (
-        <div key={i} style={{ marginBottom: 8 }}>
+        <div key={i} className="flex" style={{ marginBottom: 8 }}>
           <span>{s.label}: {s.url}</span>
         </div>
       ))}
 
-      <button onClick={() => setAuthor({ ...author, socials: [...author.socials, { label: '', url: '' }] })} style={{ marginTop: 8 }}>+ 添加社交链接</button>
+      <button className="btn" onClick={() => setAuthor({ ...author, socials: [...author.socials, { label: '', url: '' }] })} style={{ marginTop: 8 }}>+ 添加社交链接</button>
     </div>
   );
 }

@@ -59,7 +59,7 @@ export default function Resources() {
         </div>
       </div>
 
-      {loading && <p className="muted">加载中...</p>}
+      {loading && <p className="muted flex"><span className="spinner" /> 加载中…</p>}
 
       <div className="resource-grid">
         {items.map((it) => (
@@ -83,7 +83,7 @@ export default function Resources() {
             </div>
           </div>
         ))}
-        {items.length === 0 && <p className="muted" style={{ textAlign: 'center', width: '100%' }}>暂无资源，请先配置存储并上传文件。</p>}
+        {items.length === 0 && !loading && <div className="state-box" style={{ gridColumn: '1 / -1' }}>暂无资源，请先配置存储并上传文件。</div>}
       </div>
     </div>
   );

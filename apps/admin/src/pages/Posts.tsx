@@ -255,7 +255,7 @@ export default function Posts() {
         </select>
       </div>
 
-      {loading ? <p className="muted">加载中...</p> : (
+      {loading ? <p className="muted flex"><span className="spinner" /> 加载中…</p> : (
         <div className="table-wrap">
           <table>
             <thead><tr><th>标题</th><th>状态</th><th>标签</th><th>发布时间</th><th>操作</th></tr></thead>
