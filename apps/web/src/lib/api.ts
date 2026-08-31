@@ -1,5 +1,5 @@
 // Public API client for the Astro frontend.
-// Reads only the CMS public endpoints (/api/public/*); safe to run at build time.
+// Reads only the server public endpoints (/api/public/*); safe to run at build time.
 
 // Base URL for API calls. Uses PUBLIC_API_URL env var if set, otherwise defaults to /api/public
 // The PUBLIC_API_URL should be set in .env files (prefixed with PUBLIC_) and will be

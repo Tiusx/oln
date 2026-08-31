@@ -3,7 +3,7 @@ import cloudflare from '@astrojs/cloudflare';
 import { fileURLToPath } from 'node:url';
 
 // The Astro frontend is deployed on Cloudflare Pages.
-// Public data (site config, posts, tags) is fetched from the CMS public API.
+// Public data (site config, posts, tags) is fetched from the server public API.
 export default defineConfig({
   output: 'server',
   base: '/',
@@ -36,9 +36,9 @@ export default defineConfig({
     },
     server: {
       proxy: {
-        // Proxy /api requests to the CMS dev server during local development
+        // Proxy /api requests to the server dev server during local development
         '/api': {
-          target: process.env.PUBLIC_CMS_URL || 'http://localhost:8787',
+          target: process.env.PUBLIC_SERVER_URL || 'http://localhost:8787',
           changeOrigin: true,
         },
       },

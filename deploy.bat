@@ -1,11 +1,12 @@
 @echo off
-cd J:\ai\blog\oln\apps\cms
+cd /d %~dp0apps\server
 echo ===== D1 Migration =====
 wrangler d1 execute oln --remote --file=migrations/0000_init.sql
 echo.
-echo ===== Deploy CMS =====
+echo ===== Deploy Server (Hono Worker) =====
 wrangler deploy
 echo.
-echo ===== Deploy Web =====
-cd ..\web
-wrangler deploy
+echo ===== Web =====
+echo Web is auto-deployed via Cloudflare Pages Git integration (push to master).
+echo See docs/deploy-web.md
+pause

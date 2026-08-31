@@ -1,0 +1,39 @@
+name: Deploy Server (incl. Admin)
+
+on:
+  push:
+    branches: [master]
+    # 仅当 server 或 admin 目录变化时才触发部署 server，
+    # 只改 web 不会触发（web 由 Cloudflare Pages Git 集成处理）。
+    paths:
+      - 'apps/server/**'
+      - 'apps/admin/**'
+      - '.github/workflows/deploy-server.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 1) 构建 admin → apps/server/public/（server 的 ASSETS 目录）
+      - name: Build admin
+        working-directory: apps/admin
+        run: |
+          npm ci
+          npm run build
+
+      # 2) 部署 server（wrangler 会自动带上 ./public 里的 admin 产物）
+      - name: Deploy server
+        working-directory: apps/server
+        run: |
+          npm ci
+          npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

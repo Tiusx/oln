@@ -5,7 +5,7 @@
 ## 架构
 
 - **web** (Astro) - 前端博客，部署到 Cloudflare Pages
-- **cms** (Hono Worker) - 后端 CMS/内容 API，部署为 Cloudflare Worker
+- **server** (Hono Worker) - 后端服务/内容 API，部署为 Cloudflare Worker
 - **admin** (React) - 内容管理面板，部署到 Cloudflare
 
 ## 快速开始
@@ -16,13 +16,12 @@ npm install
 
 # 开发
 npm run dev:web     # 前端 dev server
-npm run dev:cms     # CMS Worker dev server
+npm run dev:server  # server Worker dev server
 npm run dev:admin   # 管理面板 dev server
 
 # 构建
 npm run build:web
 npm run build:admin
-npm run build:cms
 ```
 
 ## 部署
@@ -42,7 +41,7 @@ npm run build:cms
 ├── package.json          (根配置)
 ├── apps/
 │   ├── admin/           管理后台
-│   ├── cms/             后端 CMS
+│   ├── server/          后端服务
 │   └── web/             前端博客
 ├── README.md            (英文)
 ├── README.zh-CN.md      (中文)

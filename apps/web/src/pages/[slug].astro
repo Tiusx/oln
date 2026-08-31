@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 
 export const prerender = false;
 
-// Custom pages (about, contact, etc.) backed by the CMS "pages" content type.
+// Custom pages (about, contact, etc.) backed by the server "pages" content type.
 // Admin sets showInMenu to expose them in the nav.
 const { slug } = Astro.params;
 const config = await api.config();

@@ -3,7 +3,7 @@
 Monorepo 结构，三个独立应用统一放在 `apps/` 下，根目录只放编排文件和文档。
 
 ```
-my-blog/
+oln/
 ├─ package.json                  # 根：脚本编排（dev/build/deploy 聚合命令）
 ├─ .gitignore
 ├─ README.md
@@ -39,7 +39,7 @@ my-blog/
    │     ├─ hooks/              # 自定义 hooks
    │     └─ styles/
    │
-   └─ cms/                       # ③ 后台 API + 数据层 (Hono Worker)
+   └─ server/                     # ③ 后台 API + 数据层 (Hono Worker)
       ├─ package.json
       ├─ wrangler.toml           # D1 / R2 / KV 绑定
       ├─ drizzle.config.ts

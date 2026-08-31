@@ -1,5 +1,5 @@
 // Dependency-free markdown renderer for the frontend.
-// Mirrors the (more complete) renderer used by the CMS so previews match output.
+// Mirrors the (more complete) renderer used by the server so previews match output.
 // Output is trust-moderated: content comes from the site owner's admin.
 
 function esc(s: string): string {

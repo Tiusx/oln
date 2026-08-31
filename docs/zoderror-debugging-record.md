@@ -14,15 +14,15 @@
 
 - `apps/web` — Astro 前台
 - `apps/admin` — React + Vite 后台管理 SPA
-- `apps/cms` — Hono Worker（D1 / R2 / KV 绑定的 Cloudflare Worker）
+- `apps/server` — Hono Worker（D1 / R2 / KV 绑定的 Cloudflare Worker）
 
-日常本地开发用 `wrangler dev --local` 在 `apps/cms` 里跑 Worker。
+日常本地开发用 `wrangler dev --local` 在 `apps/server` 里跑 Worker。
 
 某天起，这个命令在**每次**启动时都稳定复现：
 
 ```
 ⎔ Starting local server...
-✘ [ERROR] service core:user:blog-cms: Uncaught Error: ZodError
+✘ [ERROR] service core:user:server: Uncaught Error: ZodError
 
     at index.js:9512:24 in get error
     at index.js:9588:18 in parse

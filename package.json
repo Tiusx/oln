@@ -2,17 +2,17 @@
   "name": "oln",
   "version": "0.1.0",
   "private": true,
-  "description": "Self-hosted blog on Cloudflare — Astro frontend + Hono Worker CMS + React admin",
+  "description": "Self-hosted blog on Cloudflare — Astro frontend + Hono Worker server + React admin",
   "type": "module",
   "scripts": {
     "dev:web": "npm --prefix apps/web run dev",
-    "dev:cms": "npm --prefix apps/cms run dev",
+    "dev:server": "npm --prefix apps/server run dev",
     "dev:admin": "npm --prefix apps/admin run dev",
     "build:web": "npm --prefix apps/web run build",
     "build:admin": "npm --prefix apps/admin run build",
-    "typecheck:cms": "npm --prefix apps/cms run typecheck",
+    "typecheck:server": "npm --prefix apps/server run typecheck",
     "typecheck:admin": "npm --prefix apps/admin run typecheck",
-    "deploy": "npm --prefix apps/cms run deploy"
+    "deploy": "npm --prefix apps/server run deploy"
   },
   "engines": {
     "node": ">=20"

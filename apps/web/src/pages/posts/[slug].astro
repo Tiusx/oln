@@ -15,7 +15,7 @@ if (!post) {
 
 const html = post.html || '';
 
-// --- TOC: extract h2/h3 from rendered HTML (CMS adds id="heading-...") ---
+// --- TOC: extract h2/h3 from rendered HTML (server adds id="heading-...") ---
 const headings: { level: number; id: string; text: string }[] = [];
 for (const match of html.matchAll(/<h([23]) id="([^"]+)">(.*?)<\/h\1>/g)) {
   const text = match[3]

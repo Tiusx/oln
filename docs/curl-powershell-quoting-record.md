@@ -10,7 +10,7 @@
 
 ## 背景
 
-本地调试 Cloudflare Worker 的 CMS，需要向 `http://127.0.0.1:8787/admin/api/auth/seed` 发一个 JSON POST 来创建管理员账号：
+本地调试 Cloudflare Worker 的 server，需要向 `http://127.0.0.1:8787/admin/api/auth/seed` 发一个 JSON POST 来创建管理员账号：
 
 ```bash
 curl -X POST http://127.0.0.1:8787/admin/api/auth/seed \

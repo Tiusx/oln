@@ -27,3 +27,19 @@ id = "a8661e7cfd024c75b9c3110ee40bc450"
 directory = "./public"
 not_found_handling = "single-page-application"
 binding = "ASSETS"  # DISABLED for local dev (ZodError)
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+redact_query_string = false
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1

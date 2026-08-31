@@ -1,5 +1,5 @@
 -- 0000_init.sql
--- Initial schema: matching apps/cms/src/db/schema/*
+-- Initial schema: matching apps/server/src/db/schema/*
 
 -- users & sessions
 CREATE TABLE IF NOT EXISTS users (

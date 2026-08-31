@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// The admin SPA is served by the CMS Worker at /admin, so base must be /admin/.
-// Build output goes to ../cms/public (which the Worker's assets serves).
+// The admin SPA is served by the server Worker at /admin, so base must be /admin/.
+// Build output goes to ../server/public (which the Worker's assets serves).
 export default defineConfig({
   base: '/admin/',
   plugins: [react()],
   build: {
-    outDir: '../cms/public',
+    outDir: '../server/public',
     emptyOutDir: true,
   },
   server: {

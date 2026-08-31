@@ -9,8 +9,15 @@ dist/
 .wrangler/
 .astro/
 
-# Admin SPA build output (generated from apps/admin into the CMS assets dir)
-apps/cms/public/
+# Admin SPA build output (generated from apps/admin into the server assets dir)
+apps/server/public/
+
+# Dev scratch / build check artifacts
+.dist-check/
+*-dev-err.txt
+*-dev-log.txt
+dev-err.txt
+dev-out.txt
 
 # Environment / secrets
 .env

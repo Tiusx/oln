@@ -5,7 +5,7 @@ A modern blogging platform consisting of three components:
 ## Architecture
 
 - **web** (Astro) - Frontend blog, deployed to Cloudflare Pages
-- **cms** (Hono Worker) - Backend CMS/Content API, deployed as Cloudflare Worker  
+- **server** (Hono Worker) - Backend server/content API, deployed as Cloudflare Worker  
 - **admin** (React) - Management panel for content, deployed to Cloudflare
 
 ## Quick Start
@@ -16,14 +16,12 @@ npm install
 
 # Development
 npm run dev:web     # Frontend dev server
-npm run dev:cms     # CMS Worker dev server
+npm run dev:server  # Server worker dev server
 npm run dev:admin   # Admin panel dev server
 
 # Build
 npm run build:web
 npm run build:admin
-npm run build:cms
-```
 
 ## Deployment
 

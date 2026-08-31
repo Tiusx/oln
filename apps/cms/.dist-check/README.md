@@ -1,1 +1,0 @@
-This folder contains the built output assets for the worker "blog-cms" generated at 2026-08-29T17:11:50.472Z.
