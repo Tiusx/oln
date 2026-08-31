@@ -26,6 +26,7 @@ dev-out.txt
 *.local
 .dev.vars
 credentials.json
+login.json
 
 # Logs
 *.log
