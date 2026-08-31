@@ -1,13 +1,11 @@
 import { defineConfig } from 'astro/config';
-import cloudflare from '@astrojs/cloudflare';
 import { fileURLToPath } from 'node:url';
 
-// The Astro frontend is deployed on Cloudflare Pages (or the same Worker).
+// The Astro frontend is deployed on Cloudflare Pages (static site).
 // Public data (site config, posts, tags) is fetched from the CMS public API.
 export default defineConfig({
   output: 'static',
   base: '/',
-  adapter: cloudflare(),
   site: process.env.PUBLIC_SITE_URL || 'https://example.com',
   vite: {
     resolve: {
