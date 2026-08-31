@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "oln"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "5483427e-0acc-40c0-bd47-eb53dd018af7"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
@@ -16,7 +16,7 @@ bucket_name = "blog-media"
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+id = "a8661e7cfd024c75b9c3110ee40bc450"
 
 # --- Workers Dev / Assets serving ---
 # The admin SPA (apps/admin) is built into ./public, served at /admin/* by this Worker.
