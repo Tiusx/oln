@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       # 1) 构建 admin → apps/server/public/（server 的 ASSETS 目录）
       - name: Build admin
