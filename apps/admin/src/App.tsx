@@ -3,6 +3,7 @@ import { NavLink, Route, Routes } from 'react-router-dom';
 import { api } from './api/client';
 import type { User } from './api/client';
 import { ToastProvider, ConfirmProvider } from './ui/Feedback';
+import ChangePasswordModal from './ui/ChangePasswordModal';
 import Login from './pages/Login';
 import Posts from './pages/Posts';
 import PostEditor from './pages/PostEditor';
@@ -93,6 +94,7 @@ export default function App() {
 }
 
 function Sidebar({ onLogout, open, onClose }: { onLogout: () => void; open: boolean; onClose: () => void }) {
+  const [showPw, setShowPw] = useState(false);
   const groups = [
     {
       title: '内容',
@@ -165,8 +167,10 @@ function Sidebar({ onLogout, open, onClose }: { onLogout: () => void; open: bool
             {g.items.length > 0 && <div className="nav-divider" />}
           </div>
         ))}
+        <button className="nav-logout" onClick={() => setShowPw(true)}>修改密码</button>
         <button className="nav-logout" onClick={onLogout}>退出登录</button>
       </nav>
+      {showPw && <ChangePasswordModal onClose={() => setShowPw(false)} />}
     </aside>
   );
 }

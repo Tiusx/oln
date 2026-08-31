@@ -70,11 +70,13 @@ export interface ResourceListResult {
 }
 
 export const api = {
-  // auth
-  login: (usernameOrEmail: string, password: string) =>
-    request<ApiEnvelope<User>>('POST', '/auth/login', { usernameOrEmail, password }),
-  me: () => request<ApiEnvelope<User>>('GET', '/auth/me'),
-  logout: () => request<ApiEnvelope<null>>('POST', '/auth/logout'),
+// auth
+login: (usernameOrEmail: string, password: string) =>
+  request<ApiEnvelope<User>>('POST', '/auth/login', { usernameOrEmail, password }),
+me: () => request<ApiEnvelope<User>>('GET', '/auth/me'),
+logout: () => request<ApiEnvelope<null>>('POST', '/auth/logout'),
+changePassword: (currentPassword: string, newPassword: string) =>
+  request<ApiEnvelope<null>>('POST', '/auth/change-password', { currentPassword, newPassword }),
 
   // posts
   listPosts: (params: Record<string, string> = {}) =>
@@ -106,6 +108,8 @@ export const api = {
   deletePage: (id: string) => request<ApiEnvelope<null>>('DELETE', `/content/pages/${id}`),
   listLinks: () => request<ApiEnvelope<any[]>>('GET', '/content/links'),
   createLink: (data: any) => request<ApiEnvelope<{ id: string }>>('POST', '/content/links', data),
+  updateLink: (id: string, data: any) =>
+    request<ApiEnvelope<{ id: string }>>('PUT', `/content/links/${id}`, data),
   deleteLink: (id: string) => request<ApiEnvelope<null>>('DELETE', `/content/links/${id}`),
   listSubscribers: (q = '') =>
     request<ApiEnvelope<any[]>>('GET', `/content/subscribers${q ? `?q=${q}` : ''}`),

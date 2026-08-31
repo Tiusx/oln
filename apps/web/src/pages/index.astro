@@ -7,7 +7,7 @@ export const prerender = false;
 
 const config = await api.config();
 const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
-const limit = 10;
+const limit = config.basic.postsPerPage || 10;
 const data = await api.posts(page, limit);
 const posts = data.items;
 const totalPages = Math.max(1, Math.ceil(data.total / limit));

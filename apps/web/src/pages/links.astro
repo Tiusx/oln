@@ -69,14 +69,14 @@ const links = await api.links();
 <style>
   .links-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 12px;
   }
   .link-card {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
+    gap: 10px;
+    padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--bg-elevated);
@@ -89,8 +89,8 @@ const links = await api.links();
     box-shadow: var(--shadow-sm);
   }
   .link-avatar {
-    width: 42px;
-    height: 42px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
@@ -102,7 +102,7 @@ const links = await api.links();
     background: var(--accent);
     color: #fff;
     font-weight: 700;
-    font-size: 18px;
+    font-size: 15px;
   }
   .link-body {
     display: flex;
@@ -111,7 +111,7 @@ const links = await api.links();
   }
   .link-name {
     font-weight: 700;
-    font-size: 15px;
+    font-size: 14px;
     color: var(--fg);
     white-space: nowrap;
     overflow: hidden;
@@ -120,7 +120,7 @@ const links = await api.links();
   .link-card:hover .link-name { color: var(--accent); }
   .link-desc {
     color: var(--fg-muted);
-    font-size: 13px;
+    font-size: 12px;
     margin-top: 2px;
     white-space: nowrap;
     overflow: hidden;

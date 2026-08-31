@@ -41,6 +41,7 @@ export const siteConfigSchema = z.object({
     favicon: z.string().default(''),
     language: z.string().default('zh-CN'),
     timezone: z.string().default('Asia/Shanghai'),
+    postsPerPage: z.coerce.number().int().min(1).max(50).default(10),
   }),
   seo: z.object({
     description: z.string().default(''),

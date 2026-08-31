@@ -94,15 +94,20 @@ curl -s -o /dev/null -w "%{http_code}\n" https://api.example.com/admin/     # 20
 
 ## 数据库迁移
 
-首次部署后需执行迁移（换上真实迁移文件名）：
+使用 `wrangler d1 migrations apply`（基于 `migrations/` 目录 + `d1_migrations` 表跟踪，天然幂等）：
 
 ```bash
 cd apps/server
-wrangler d1 execute blog --remote --file=migrations/0000_init.sql
-wrangler d1 execute blog --remote --file=migrations/0001_messages_hitokoto.sql
-wrangler d1 execute blog --remote --file=migrations/0002_drop_messages.sql
-wrangler d1 execute blog --remote --file=migrations/0003_post_comments_enabled.sql
+
+# 应用到本地
+wrangler d1 migrations apply oln --local
+
+# 应用到远端（CI 部署也会自动执行）
+wrangler d1 migrations apply oln --remote
 ```
+
+> 新增 schema 改动时：修改 `drizzle` schema → `npm run db:generate` 生成 `migrations/NNNN_*.sql` → 提交。
+> 部署时 CI（deploy-server.yml）会自动对远端执行 `migrations apply`，无需手动操作。
 
 ## 常见问题
 

@@ -39,6 +39,7 @@ GitHub (git remote) ──push master──▶ Cloudflare Pages
 | `PUBLIC_API_URL` | SSR 运行时 fetch server 公开 API | ✅ | `https://api.example.com/api/public` |
 | `PUBLIC_SITE_URL` | sitemap/rss/robots 的站点 URL | ✅ | `https://www.example.com` |
 | `PUBLIC_WALINE_SERVER_URL` | 评论 Waline 地址 | 可选 | 默认 `https://waline.example.com` |
+| `PUBLIC_ADMIN_URL` | 页脚「管理」入口链接地址 | 可选 | 默认 `/admin/`，独立部署后台时可指向 `https://admin.example.com/` |
 | `PUBLIC_SERVER_URL` | **仅本地** `astro dev` 代理 target | 生产不用 | `http://localhost:8787` |
 
 > ### 🚨 关键区别：`PUBLIC_API_URL` ≠ `PUBLIC_SERVER_URL`
@@ -101,6 +102,8 @@ cd apps/web
 #   PUBLIC_API_URL=http://localhost:8787/api/public
 #   PUBLIC_SITE_URL=http://localhost:3000
 #   PUBLIC_SERVER_URL=http://localhost:8787
+#   PUBLIC_WALINE_SERVER_URL=https://waline.example.com   #可选
+#   PUBLIC_ADMIN_URL=/admin/                              #可选，后台入口链接
 npm run dev    # 访问 http://localhost:3000
 ```
 

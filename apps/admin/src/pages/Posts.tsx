@@ -267,9 +267,29 @@ export default function Posts() {
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
+  const [postsPerPage, setPostsPerPage] = useState(10);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const limit = 20;
   const { toast } = useToast();
   const { confirm } = useConfirm();
+
+  useEffect(() => {
+    api.getConfig().then((r) => {
+      setPostsPerPage(r.data?.basic?.postsPerPage ?? 10);
+    }).catch(() => {});
+  }, []);
+
+  async function savePostsPerPage() {
+    try {
+      const r = await api.getConfig();
+      const cfg = r.data;
+      cfg.basic = { ...(cfg.basic || {}), postsPerPage: Number(postsPerPage) };
+      await api.saveConfig(cfg);
+      toast('首页每页文章数已保存', 'success');
+    } catch (e: any) {
+      toast(e.message || '保存失败', 'error');
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -280,6 +300,7 @@ export default function Posts() {
       const r = await api.listPosts(params);
       setPosts(r.data.items);
       setTotal(r.data.total);
+      setSelected(new Set());
     } finally {
       setLoading(false);
     }
@@ -319,6 +340,39 @@ export default function Posts() {
       setPosts(r.data.items);
       setTotal(r.data.total);
     } catch { /* 忽略 */ }
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    const ids = posts.map((p) => p.id);
+    const allChecked = ids.length > 0 && ids.every((id) => selected.has(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allChecked) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  async function batchDelete() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) { toast('请先勾选要删除的文章', 'error'); return; }
+    if (!(await confirm({ title: '批量删除', message: `确定删除选中的 ${ids.length} 篇文章吗？此操作无法撤销。`, danger: true }))) return;
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await api.deletePost(id); ok++; } catch { fail++; }
+    }
+    setSelected(new Set());
+    if (fail > 0) toast(`已删除 ${ok} 篇，失败 ${fail} 篇`, 'error');
+    else toast(`已删除 ${ok} 篇文章`, 'success');
+    load();
   }
 
   async function exportPosts(format: ExportFormat) {
@@ -452,15 +506,46 @@ export default function Posts() {
           <option value="published">已发布</option>
           <option value="draft">草稿</option>
         </select>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0, marginLeft: 'auto' }}>
+          <label className="field-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>首页每页文章数</label>
+          <input
+            className="field-input"
+            type="number"
+            min={1}
+            max={50}
+            style={{ width: 76 }}
+            value={postsPerPage}
+            onChange={(e) => setPostsPerPage(Number(e.target.value))}
+          />
+          <button className="btn secondary sm" onClick={savePostsPerPage}>保存</button>
+        </div>
       </div>
+
+      {selected.size > 0 && !loading && (
+        <div className="panel toolbar flex between" style={{ marginBottom: 12 }}>
+          <span className="muted">已选 {selected.size} 篇文章</span>
+          <div className="flex" style={{ gap: 8 }}>
+            <button className="btn danger sm" onClick={batchDelete}>批量删除</button>
+            <button className="btn secondary sm" onClick={() => setSelected(new Set())}>取消选择</button>
+          </div>
+        </div>
+      )}
 
       {loading ? <p className="muted flex"><span className="spinner" /> 加载中…</p> : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>标题</th><th>状态</th><th>标签</th><th>发布时间</th><th>操作</th></tr></thead>
+            <thead><tr>
+              <th style={{ width: 40, textAlign: 'center' }}>
+                <input type="checkbox" checked={posts.length > 0 && posts.every((p) => selected.has(p.id))} onChange={toggleSelectAll} aria-label="选择本页全部" />
+              </th>
+              <th>标题</th><th>状态</th><th>标签</th><th>发布时间</th><th>操作</th>
+            </tr></thead>
             <tbody>
               {posts.map((p) => (
-                <tr key={p.id}>
+                <tr key={p.id} style={{ opacity: selected.has(p.id) ? 0.6 : 1 }}>
+                  <td style={{ textAlign: 'center' }}>
+                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} aria-label={`选择 ${p.title}`} />
+                  </td>
                   <td><Link to={`/posts/${p.id}`}>{p.pinned ? '📌 ' : ''}{p.title}</Link></td>
                   <td><span className={`badge ${p.status}`}>{p.status === 'published' ? '已发布' : '草稿'}</span></td>
                   <td>{p.tags.map((t) => t.name).join(', ')}</td>
