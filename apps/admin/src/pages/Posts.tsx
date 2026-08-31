@@ -88,25 +88,174 @@ function postsToMarkdown(posts: Post[]): string {
   return lines.join('\n');
 }
 
-function parseMarkdown(md: string) {
+// ---------------------------------------------------------------------------
+// Import: format auto-detection + normalization
+// ---------------------------------------------------------------------------
+
+/** Parse a YAML-ish `key: value` frontmatter block into an object. */
+function parseFrontmatter(block: string): Record<string, string> {
+  const meta: Record<string, string> = {};
+  for (const raw of block.split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#') || line.startsWith('---')) continue;
+    const idx = line.indexOf(':');
+    if (idx > 0) {
+      const key = line.slice(0, idx).trim();
+      const val = line.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+      meta[key] = val || '';
+    }
+  }
+  return meta;
+}
+
+/** Normalize a raw imported post into a valid PostInput, tagging issues. */
+function normalizeImportItem(item: any): { input: PostInput | null; error: string | null; tags: unknown } {
+  const tags = item?.tags;
+  const title = item && typeof item.title === 'string' ? item.title.trim() : '';
+  if (!title) return { input: null, error: '缺少标题（title）', tags };
+  if (title.length > 200) return { input: null, error: `标题超长（${title.length}/200）: ${title.slice(0, 24)}…`, tags };
+
+  // publishedAt: 空串 / 非法值 -> null
+  let publishedAt: string | null = null;
+  if (item.publishedAt != null && item.publishedAt !== '') {
+    const d = new Date(item.publishedAt);
+    if (!isNaN(d.getTime())) publishedAt = d.toISOString();
+  }
+
+  // slug: 空串 -> 交给服务端根据标题自动生成
+  const slug = item.slug && String(item.slug).trim() ? String(item.slug).trim() : undefined;
+
+  // tags：支持数组或逗号分隔字符串
+  let tagIds: string[] = [];
+  let categoryId: string | null = item.categoryId ?? null;
+
+  const input: PostInput = {
+    title,
+    slug,
+    excerpt: item.excerpt == null || item.excerpt === '' ? null : String(item.excerpt).slice(0, 500),
+    content: item.content == null ? '' : String(item.content),
+    categoryId,
+    coverImage: item.coverImage || null,
+    status: item.status === 'published' ? 'published' : 'draft',
+    pinned: item.pinned === true || item.pinned === 'true' || item.pinned === 1,
+    publishedAt,
+    tagIds,
+    seoTitle: item.seoTitle || null,
+    seoDescription: item.seoDescription || null,
+  };
+  return { input, error: null, tags };
+}
+
+/** Detect the input format from raw text. */
+function detectPostFormat(text: string): 'json' | 'markdown' {
+  const t = text.trim();
+  if (t.startsWith('{') || t.startsWith('[')) return 'json';
+  return 'markdown';
+}
+
+/** Parse a JSON import: array, single object, or wrapped {posts:[...]}. */
+function parseJsonPosts(data: any): any[] {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.posts)) return data.posts;
+  if (data && typeof data === 'object') return [data];
+  return [];
+}
+
+/**
+ * Parse Markdown into posts. Supports:
+ *  - the blog's own export (multiple posts, each `## 标题` + YAML-ish meta + body,
+ *    separated by `---`)
+ *  - a single standard front-matter document (`---\n title: ...\n ---\n body`)
+ */
+function parseMarkdownPosts(md: string): any[] {
   const posts: any[] = [];
-  const parts = md.split(/^---$/m);
-  for (let i = 1; i < parts.length; i += 2) {
-    const front = parts[i].trim();
-    const content = (parts[i + 1] || '').trim();
-    if (!front) continue;
-    const meta: Record<string, string> = {};
-    for (const line of front.split('\n')) {
-      const idx = line.indexOf(':');
-      if (idx > 0) {
-        const key = line.slice(0, idx).trim();
-        const val = line.slice(idx + 1).trim();
-        meta[key] = val;
+  const sections = md.split(/^---\s*$/m).map((s) => s.trim());
+
+  // Collect (metaBlockOrTitle, body) pairs. Odd indices after `---` are metadata
+  // blocks; even indices are bodies. Handle step of 2.
+  for (let i = 1; i + 1 < sections.length; i += 2) {
+    const block = sections[i];
+    const body = sections[i + 1] ?? '';
+    if (!block && !body) continue;
+    const meta = parseFrontmatter(block);
+    posts.push({ ...meta, content: body });
+  }
+
+  // If the above found a single post with a title but a blank meta block lies at
+  // index 1, fall back / merge sensibly. If nothing found, try a plain heading split.
+  if (posts.length === 0) return posts;
+
+  // Convert `## 标题` shorthand when frontmatter lacks `title`.
+  for (const p of posts) {
+    if (!p.title && p.content) {
+      const m = p.content.match(/^#{1,6}\s+(.+?)\s*\n/);
+      if (m) {
+        p.title = m[1].trim();
+        p.content = p.content.replace(/^#{1,6}\s+.+?\s*\n/, '');
       }
     }
-    posts.push({ ...meta, content });
   }
   return posts;
+}
+
+/** Single entry point: raw file text -> normalized array of {input,error}. */
+function parseImportFile(name: string, text: string): { input: PostInput | null; error: string | null; tags: unknown }[] {
+  const isJson = /\.json$/i.test(name) || detectPostFormat(text) === 'json';
+  let rawItems: any[];
+  try {
+    if (isJson) {
+      rawItems = parseJsonPosts(JSON.parse(text));
+      // tolerate a bare single-post object
+      if (!Array.isArray(rawItems)) rawItems = [rawItems];
+    } else {
+      rawItems = parseMarkdownPosts(text);
+    }
+  } catch (e: any) {
+    return [{ input: null, error: `文件解析失败：${e.message || '未知错误'}`, tags: undefined }];
+  }
+  if (rawItems.length === 0) return [{ input: null, error: '文件中没有可导入的文章', tags: undefined }];
+  return rawItems.map(normalizeImportItem);
+}
+
+// ---------------------------------------------------------------------------
+// Template download
+// ---------------------------------------------------------------------------
+function jsonTemplate(): string {
+  return JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    version: 1,
+    total: 1,
+    posts: [{
+      title: '示例文章标题',
+      slug: 'example-post',
+      excerpt: '文章摘要，可留空',
+      content: '# 标题\n\n这里是文章正文（Markdown）。',
+      status: 'draft',
+      pinned: false,
+      publishedAt: null,
+      categoryId: null,
+      coverImage: null,
+      tags: ['示例标签'],
+      seoTitle: null,
+      seoDescription: null,
+    }],
+  }, null, 2);
+}
+
+function markdownTemplate(): string {
+  return [
+    '# 文章导出模板',
+    '说明：每个文章段落以 --- 分隔；frontmatter 键: 值 + 正文。import 时自动识别。',
+    '---',
+    '## 示例文章标题',
+    '---',
+    'slug: example-post',
+    'status: draft',
+    'tags: 示例标签, 另一个标签',
+    '---',
+    '正文内容（Markdown）。',
+    '---',
+  ].join('\n');
 }
 
 export default function Posts() {
@@ -140,13 +289,36 @@ export default function Posts() {
 
   async function remove(id: string) {
     if (!(await confirm({ title: '删除文章', message: '确定删除这篇文章吗？此操作无法撤销。', danger: true }))) return;
+    // 乐观删除：先从本地状态移除，避免整个表格闪烁
+    const title = posts.find((p) => p.id === id)?.title || '';
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+    setTotal((prev) => Math.max(0, prev - 1));
     try {
       await api.deletePost(id);
       toast('文章已删除', 'success');
-      load();
+      // 若当前页删空且不是第一页，回退一页；否则静默重算分页数据
+      if (posts.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        refreshSilently();
+      }
     } catch (e: any) {
-      toast(e.message || '删除失败', 'error');
+      // 失败回滚 + 刷新
+      toast(`删除失败：${e.message || '未知错误'}`, 'error');
+      load();
     }
+  }
+
+  /** 不触发 loading 状态的静默刷新（用于删除后的计数/排序校正）。 */
+  async function refreshSilently() {
+    try {
+      const params: Record<string, string> = { page: String(page), limit: String(limit) };
+      if (status) params.status = status;
+      if (q) params.q = q;
+      const r = await api.listPosts(params);
+      setPosts(r.data.items);
+      setTotal(r.data.total);
+    } catch { /* 忽略 */ }
   }
 
   async function exportPosts(format: ExportFormat) {
@@ -169,44 +341,70 @@ export default function Posts() {
     setImporting(true);
     try {
       const text = await file.text();
-      let items: any[] = [];
-      if (file.name.endsWith('.json')) {
-        const data = JSON.parse(text);
-        items = data.posts || data;
-      } else if (file.name.endsWith('.md') || file.name.endsWith('.markdown')) {
-        items = parseMarkdown(text);
-      } else {
-        throw new Error('仅支持 .json / .md 文件');
-      }
-      if (!Array.isArray(items)) throw new Error('无效的导入格式');
+      const parsed = parseImportFile(file.name, text);
+
+      // 预解析 tag -> id 映射（复用一次请求）
+      const tagBySlug: Record<string, string> = {};
+      try {
+        for (const t of (await api.listTags()).data) tagBySlug[t.slug] = t.id;
+      } catch { /* 忽略标签解析失败，不影响正文导入 */ }
+
+      const wantTagsFor = async (tags: unknown): Promise<string[]> => {
+        const names = typeof tags === 'string'
+          ? tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
+          : Array.isArray(tags)
+            ? tags.map((t) => (typeof t === 'string' ? t : (t && t.name) || '')).filter(Boolean)
+            : [];
+        const ids: string[] = [];
+        for (const name of names) {
+          const slug = name.trim();
+          if (tagBySlug[slug]) { ids.push(tagBySlug[slug]); continue; }
+          try {
+            const created = await api.createTag({ name });
+            ids.push(created.data.id);
+            tagBySlug[slug] = created.data.id;
+            if (created.data.id) tagBySlug[name] = created.data.id;
+          } catch { /* 标签创建失败则跳过该标签 */ }
+        }
+        return ids;
+      };
+
       let success = 0, failed = 0;
-      for (const item of items) {
+      const errors: string[] = [];
+      for (let i = 0; i < parsed.length; i++) {
+        const { input, error, tags } = parsed[i];
+        if (!input) { failed++; errors.push(`第 ${i + 1} 篇：${error}`); continue; }
         try {
-          let tagIds: string[] = [];
-          if (item.tags) {
-            const tagNames = typeof item.tags === 'string' ? item.tags.split(',').map((s: string) => s.trim()) : item.tags;
-            const allTags = await api.listTags();
-            tagIds = tagNames.map((name: string) => allTags.data.find((t) => t.name === name)?.id).filter(Boolean) as string[];
-          }
-          const input: PostInput = {
-            title: item.title, slug: item.slug, excerpt: item.excerpt ?? null, content: item.content ?? '',
-            categoryId: item.categoryId ?? null, coverImage: item.coverImage ?? null,
-            status: (item.status as 'draft' | 'published') ?? 'draft',
-            pinned: item.pinned === 'true' || item.pinned === true,
-            publishedAt: item.publishedAt ?? null, tagIds,
-            seoTitle: item.seoTitle ?? null, seoDescription: item.seoDescription ?? null,
-          };
+          input.tagIds = await wantTagsFor(tags);
           await api.createPost(input);
           success++;
-        } catch { failed++; }
+        } catch (e: any) {
+          failed++;
+          errors.push(`第 ${i + 1} 篇「${input.title}」：${e.message || '导入失败'}`);
+        }
       }
-      toast(`导入完成：成功 ${success}，失败 ${failed}`, failed ? 'error' : 'success');
-      load();
+
+      if (failed > 0 && errors.length) {
+        toast(`导入完成：成功 ${success}，失败 ${failed}。${errors.slice(0, 3).join('；')}${errors.length > 3 ? ` 等 ${errors.length} 条` : ''}`, 'error');
+      } else {
+        toast(`导入完成：成功 ${success} 篇`, 'success');
+      }
+      if (success > 0) load();
     } catch (e: any) {
-      toast(e.message || '导入失败', 'error');
+      toast(e.message || '导入失败（仅支持 .json / .md / .markdown 文件）', 'error');
     } finally {
       setImporting(false);
     }
+  }
+
+  function downloadTemplate() {
+    const fmt = exportFormat;
+    if (fmt === 'json') {
+      downloadFile(jsonTemplate(), 'posts-template.json', 'application/json;charset=utf-8');
+    } else {
+      downloadFile(markdownTemplate(), 'posts-template.md', 'text/markdown;charset=utf-8');
+    }
+    toast('数据格式模板已下载', 'info');
   }
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -232,15 +430,16 @@ export default function Posts() {
     <div>
       <div className="flex between toolbar">
         <h1 className="page-title">文章</h1>
-        <div className="flex" style={{ gap: 8 }}>
+        <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
           <Link className="btn" to="/posts/new">+ 新文章</Link>
           <select className="field-input" value={exportFormat} onChange={(e) => setExportFormat(e.target.value as ExportFormat)} style={{ width: 100 }}>
             <option value="json">JSON</option>
             <option value="md">Markdown</option>
           </select>
           <button className="btn secondary" onClick={() => exportPosts(exportFormat)} disabled={loading}>导出</button>
-          <label className="btn" style={{ cursor: 'pointer' }}>
-            导入
+          <button className="btn secondary" onClick={downloadTemplate} title="下载数据格式模板文件">下载模板</button>
+          <label className="btn">
+            {importing ? <><span className="spinner-sm" /> 导入中…</> : '导入'}
             <input type="file" accept=".json,.md,.markdown" onChange={onFileChange} style={{ display: 'none' }} disabled={importing} />
           </label>
         </div>

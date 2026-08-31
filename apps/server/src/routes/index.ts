@@ -6,6 +6,7 @@ import { contentRoutes } from './content';
 import { configRoutes } from './config';
 import { mediaRoutes } from './media';
 import { publicRoutes } from './public';
+import { resourceRoutes } from './resources';
 
 /**
  * Full API app.
@@ -26,5 +27,6 @@ function adminApi(): Hono<AppBindings> {
   app.route('/content', contentRoutes());
   app.route('/config', configRoutes());
   app.route('/media', mediaRoutes());
+  app.route('/resources', resourceRoutes());
   return app;
 }

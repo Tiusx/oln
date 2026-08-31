@@ -58,8 +58,15 @@ export interface ResourceItem {
   name: string;
   url: string;
   size: number;
+  uploaded?: string;
   type: 'image' | 'video' | 'other';
   provider: 'local' | 'r2' | 'github';
+}
+
+export interface ResourceListResult {
+  data: ResourceItem[];
+  listable: boolean;
+  message?: string;
 }
 
 export const api = {
@@ -138,7 +145,7 @@ export const api = {
   getStorageConfig: () => request<ApiEnvelope<StorageConfig>>('GET', '/config/storage'),
   // resources
   listResources: (provider: 'local' | 'r2' | 'github') =>
-    request<ApiEnvelope<ResourceItem[]>>('GET', `/resources/list?provider=${provider}`),
+    request<ResourceListResult>('GET', `/resources/list?provider=${provider}`),
   deleteResource: (key: string) =>
     request<ApiEnvelope<null>>('DELETE', `/resources/${encodeURIComponent(key)}`),
 };

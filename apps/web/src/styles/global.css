@@ -187,12 +187,27 @@ img {
   text-align: center;
   line-height: 1.8;
 }
+.site-footer .inner > div + div { margin-top: 10px; }
 .site-footer a {
   color: var(--fg-muted);
   text-decoration: none;
 }
 .site-footer a:hover {
   color: var(--accent);
+}
+.admin-entry {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--fg-faint) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.admin-entry:hover {
+  color: var(--accent) !important;
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 /* ---------- Pages ---------- */
@@ -772,50 +787,65 @@ html[data-theme="dark"] .theme-toggle .ico-moon {
 @media (max-width: 768px) {
   :root { --max-width: 100%; }
   body { font-size: 15px; line-height: 1.7; }
-  .site-header { padding: 0 16px; }
-  .header-inner { gap: 10px; }
+
+  /* Header */
+  .site-header .inner { padding: 10px 16px; gap: 10px; height: auto; min-height: 52px; flex-wrap: wrap; }
   .site-title { font-size: 18px; }
-  .nav { display: none; }
-  .theme-toggle { width: 36px; height: 36px; }
-  .page-head { padding: 20px 16px 0; }
-  .post-list { gap: 24px; padding: 0 16px; }
+  .site-nav { gap: 2px; }
+  .site-nav a { font-size: 14px; padding: 6px 8px; }
+  .theme-toggle { width: 34px; height: 34px; }
+
+  /* Body */
+  .site-body { padding: 24px 16px 48px; }
+
+  /* Page head */
+  .page-head h1 { font-size: 26px; }
+  .page-head { margin-bottom: 22px; }
+
+  /* Post list */
+  .post-list { gap: 28px; }
   .post-item { gap: 12px; font-size: 14px; }
-  .post-date { font-size: 12px; min-width: 60px; }
-  .post-title { font-size: 15px; }
-  .year-title { font-size: 14px; padding-bottom: 4px; }
+  .post-date { font-size: 12px; min-width: 58px; }
+  .post-title { font-size: 14px; }
+  .year-title { font-size: 13px; padding-bottom: 4px; }
   .year-posts { gap: 8px; }
-  .post-card { padding: 16px; }
+  .post-cover { max-width: 100%; }
+
+  /* Article */
+  .article-head { margin-bottom: 24px; padding-bottom: 18px; }
+  .article-head h1 { font-size: 26px; }
+  .article-meta { gap: 8px; font-size: 13px; }
   .post-content { font-size: 15px; line-height: 1.8; }
-  .post-content h1 { font-size: 26px; }
+  .post-content h1 { font-size: 24px; }
   .post-content h2 { font-size: 20px; }
   .post-content h3 { font-size: 17px; }
-  .post-content pre { padding: 12px; font-size: 13px; }
-  .article-header { padding: 24px 16px 12px; }
-  .article-meta { font-size: 12px; gap: 8px; flex-wrap: wrap; }
-  .article-tags { gap: 6px; padding-top: 12px; }
-  .pin-badge { font-size: 9px; padding: 0 4px; }
-  .article-footer { padding: 20px 16px; }
-  .author-box { flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; }
+  .post-content pre { padding: 14px; font-size: 13px; overflow-x: auto; }
+  .author-box { flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; }
   .toc { display: none; }
-  .post-nav { flex-direction: column; gap: 12px; }
+
+  /* Prev / next */
+  .post-nav { grid-template-columns: 1fr; gap: 12px; }
   .post-nav a { width: 100%; text-align: left; }
+  .post-nav a.next { text-align: left; }
+
+  /* Pagination / footer */
   .pagination { flex-wrap: wrap; gap: 8px; }
-  .footer { padding: 20px 16px; font-size: 13px; }
-  .hero { padding: 40px 16px; }
-  .hero h1 { font-size: 28px; }
+  .site-footer .inner { padding: 24px 16px; font-size: 13px; }
   .tags-cloud { justify-content: center; }
 }
 
 @media (max-width: 480px) {
+  .site-header .inner { padding: 0 12px; }
   .site-title { font-size: 16px; }
-  .post-title { font-size: 14px; }
-  .post-date { font-size: 11px; min-width: 55px; }
-  .post-content h1 { font-size: 22px; }
+  .site-nav a { font-size: 13px; padding: 6px 6px; }
+  .post-title { font-size: 13px; }
+  .post-date { font-size: 11px; min-width: 52px; }
+  .article-head h1 { font-size: 22px; }
+  .post-content h1 { font-size: 21px; }
   .post-content h2 { font-size: 18px; }
   .post-content h3 { font-size: 16px; }
-  .article-header h1 { font-size: 22px; }
   .article-meta { gap: 6px; }
-  .hero h1 { font-size: 24px; }
+  .post-foot { padding-bottom: 4px; }
 }
 
 /* ---------- Waline (comments) theme follow ---------- */

@@ -11,10 +11,7 @@ if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 echo.
 echo [1/4] Initializing local D1 database...
 cd /d "%ROOT%\apps\server"
-npx wrangler d1 execute oln --local --file=migrations\0000_init.sql
-npx wrangler d1 execute oln --local --file=migrations\0001_messages_hitokoto.sql
-npx wrangler d1 execute oln --local --file=migrations\0002_drop_messages.sql
-npx wrangler d1 execute oln --local --file=migrations\0003_post_comments_enabled.sql
+npx wrangler d1 migrations apply oln --local
 
 echo.
 echo [2/4] Starting server...

@@ -17,5 +17,8 @@ const year = new Date().getFullYear();
       {footerText || `© ${year} ${config.basic.siteName || 'Blog'}`}
       {beian && <div><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">{beian}</a></div>}
     </div>
+    <div>
+      <a class="admin-entry" href="/admin/" rel="noopener" aria-label="后台管理 / 登录">管理「{config.basic.siteName || 'Blog'}」</a>
+    </div>
   </div>
 </footer>

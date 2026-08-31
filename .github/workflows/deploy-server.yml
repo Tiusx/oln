@@ -29,7 +29,16 @@ jobs:
           npm ci
           npm run build
 
-      # 2) 部署 server（wrangler 会自动带上 ./public 里的 admin 产物）
+      # 2) 应用 D1 迁移到远端（利用 wrangler 的迁移跟踪，天然幂等，重复部署不会重跑）
+      - name: Apply D1 migrations (remote)
+        working-directory: apps/server
+        run: |
+          npm ci
+          npx wrangler d1 migrations apply oln --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # 3) 部署 server（wrangler 会自动带上 ./public 里的 admin 产物）
       - name: Deploy server
         working-directory: apps/server
         run: |

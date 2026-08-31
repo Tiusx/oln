@@ -1,6 +1,12 @@
 import { Hono } from 'hono';
 import { withDb, loadUser, requireAuth, type AppBindings } from '../middleware/auth';
 import { loadConfig, saveConfig, siteConfigSchema } from '../services/config';
+import {
+  loadStorageConfig,
+  saveStorageConfig,
+  storageConfigSchema,
+  isListable,
+} from '../services/storage';
 import { ApiError } from '../lib/http';
 
 export function configRoutes(): Hono<AppBindings> {
@@ -33,5 +39,54 @@ export function configRoutes(): Hono<AppBindings> {
     return c.json({ success: true, data: saved });
   });
 
+  // GET /admin/api/config/storage — storage provider config
+  app.get('/storage', async (c) => {
+    const db = c.get('db');
+    const config = await loadStorageConfig(db);
+    return c.json({ success: true, data: config });
+  });
+
+  // PUT /admin/api/config/storage — persist storage config
+  app.put('/storage', async (c) => {
+    const db = c.get('db');
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      throw new ApiError(400, 'Invalid JSON body');
+    }
+    const parsed = storageConfigSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ApiError(422, `Validation failed: ${parsed.error.issues.map((i) => i.message).join('; ')}`);
+    }
+    const saved = await saveStorageConfig(db, parsed.data);
+    return c.json({ success: true, data: saved });
+  });
+
+  // POST /admin/api/config/storage/test — validate connectivity for the selected provider
+  app.post('/storage/test', async (c) => {
+    const db = c.get('db');
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      throw new ApiError(400, 'Invalid JSON body');
+    }
+    const parsed = storageConfigSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ApiError(422, `Validation failed: ${parsed.error.issues.map((i) => i.message).join('; ')}`);
+    }
+    return c.json({
+      success: true,
+      data: {
+        status: isListable(parsed.data.provider) ? 'ok' : 'config-saved',
+        message: isListable(parsed.data.provider)
+          ? '本地存储连接正常'
+          : `「${parsed.data.provider}」第三方存储当前仅保存配置，列表连接尚未接入（仅本地存储可实时浏览）。`,
+      },
+    });
+  });
+
   return app;
 }
+
