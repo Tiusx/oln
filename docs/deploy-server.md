@@ -30,6 +30,46 @@ apps/server (Hono Worker)
 | `CACHE` | KV | id `kv-xxxxxxxx` | 缓存 |
 | `ASSETS` | static | `./public` | 托管 admin SPA |
 
+## 本地开发
+
+三个服务各有独立端口，通过代理串联。**server 是核心**，admin/web 都依赖它。
+
+| 服务 | 命令（根目录） | 端口 |
+|------|---------------|------|
+| server (Hono Worker) | `npm run dev:server` | `http://localhost:8787` |
+| admin (React Vite) | `npm run dev:admin` | `http://localhost:5173/admin/` |
+| web (Astro SSR) | `npm run dev:web` | `http://localhost:4321` |
+
+启动步骤（分别开三个终端）：
+
+```bash
+# 终端 A：server（wrangler dev --local）
+npm run dev:server
+
+# 终端 B：admin
+npm run dev:admin
+
+# 终端 C：web
+npm run dev:web
+```
+
+首次可能需初始化本地 D1：
+
+```bash
+npm --prefix apps/server run db:migrate:local
+```
+
+本地 seed 首个管理员（本地 D1 是空的，调本地接口）：
+
+```powershell
+$body = '{"usernameOrEmail":"admin","password":"admin"}'
+[byte[]]$b = [System.Text.Encoding]::UTF8.GetBytes($body)
+Invoke-WebRequest -Uri "http://localhost:8787/admin/api/auth/seed" -Method Post `
+  -ContentType "application/json; charset=utf-8" -Body $b -UseBasicParsing
+```
+
+> 提示：服务器代码改动用 wrangler dev 热重载；admin/web 各自有 HMR 自动刷新。
+
 ## 部署
 
 ```bash

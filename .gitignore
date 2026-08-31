@@ -27,6 +27,7 @@ dev-out.txt
 .dev.vars
 credentials.json
 login.json
+cookies.txt
 
 # Logs
 *.log
@@ -41,3 +42,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Backup / scratch
+*.bak
+*.orig
+*~
