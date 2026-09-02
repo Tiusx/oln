@@ -1,8 +1,7 @@
 import { Hono } from 'hono';
 import { withDb, loadUser, requireAuth, type AppBindings } from '../middleware/auth';
 import { ApiError } from '../lib/http';
-import { mediaUrl } from '../services/media';
-import { loadStorageConfig, isListable } from '../services/storage';
+import { loadStorageConfig, listProvider, deleteProvider, isListable, type Provider } from '../services/storage';
 
 export function resourceRoutes(): Hono<AppBindings> {
   const app = new Hono<AppBindings>();
@@ -10,14 +9,18 @@ export function resourceRoutes(): Hono<AppBindings> {
   app.use('*', loadUser);
   app.use('*', requireAuth);
 
-  // GET /admin/api/resources/list?provider=local|r2|github
+  const resolveProvider = (req: string, configured: Provider | undefined): Provider => {
+    const p = req as Provider;
+    if ((['local', 'r2', 's3', 'github'] as Provider[]).includes(p)) return p;
+    return configured || 'local';
+  };
+
+  // GET /admin/api/resources/list?provider=local|r2|s3|github&prefix=...
   app.get('/list', async (c) => {
     const db = c.get('db');
-    const provider = (c.req.query('provider') || 'local') as 'local' | 'r2' | 'github';
     const config = await loadStorageConfig(db);
-    const activeProvider = (['local', 'r2', 'github'].includes(provider) ? provider : config.provider) as 'local' | 'r2' | 'github';
+    const activeProvider = resolveProvider(c.req.query('provider') || '', config.provider);
 
-    // 仅本地（R2/MEDIA）支持实时浏览；第三方仅保存配置、返回空列表并附说明
     if (!isListable(activeProvider)) {
       return c.json({
         success: true,
@@ -28,35 +31,30 @@ export function resourceRoutes(): Hono<AppBindings> {
     }
 
     const prefix = c.req.query('prefix') || '';
-    const listed = await c.env.MEDIA.list({ prefix: prefix || undefined, limit: 200 });
-    const items = listed.objects.map((o) => {
-      const isImage = /\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)$/i.test(o.key);
-      const isVideo = /\.(mp4|webm|mov|m4v|ogv)$/i.test(o.key);
-      return {
-        key: o.key,
-        name: o.key.split('/').pop() || o.key,
-        url: mediaUrl(c.env, o.key),
-        size: o.size,
-        uploaded: o.uploaded,
-        type: isImage ? 'image' : isVideo ? 'video' : 'other',
-        provider: activeProvider,
-      };
-    });
-    return c.json({ success: true, data: items, listable: true });
+    try {
+      const items = await listProvider(c.env, config, activeProvider, prefix);
+      return c.json({ success: true, data: items, listable: true });
+    } catch (e: any) {
+      throw new ApiError(502, `资源列表获取失败: ${e?.message || e}`);
+    }
   });
 
-  // DELETE /admin/api/resources/:key — delete a resource on the active provider
+  // DELETE /admin/api/resources/:key?provider=... — delete a resource on the chosen provider
   app.delete('/:key', async (c) => {
     const db = c.get('db');
-    const provider = (c.req.query('provider') || 'local') as 'local' | 'r2' | 'github';
     const config = await loadStorageConfig(db);
-    const active = (['local', 'r2', 'github'].includes(provider) ? provider : config.provider) as 'local' | 'r2' | 'github';
-    if (!isListable(active)) {
+    const activeProvider = resolveProvider(c.req.query('provider') || '', config.provider);
+    if (!isListable(activeProvider)) {
       throw new ApiError(400, '第三方存储当前仅保存配置，暂不支持删除操作');
     }
     const key = decodeURIComponent(c.req.param('key'));
-    await c.env.MEDIA.delete(key);
-    return c.json({ success: true });
+    if (!key) throw new ApiError(400, 'Missing key');
+    try {
+      await deleteProvider(c.env, config, activeProvider, key);
+      return c.json({ success: true });
+    } catch (e: any) {
+      throw new ApiError(502, `资源删除失败: ${e?.message || e}`);
+    }
   });
 
   return app;

@@ -11,7 +11,6 @@ import Taxonomy from './pages/Taxonomy';
 import PagesPage from './pages/PagesPage';
 import Links from './pages/Links';
 import Subscribers from './pages/Subscribers';
-import Media from './pages/Media';
 import Settings from './pages/Settings';
 import Comments from './pages/Comments';
 import Navigation from './pages/Navigation';

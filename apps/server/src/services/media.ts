@@ -15,7 +15,11 @@ const extByType: Record<string, string> = {
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
 
-/** Derive an object key: <yyyy>/<MM>/<random>.<ext> */
+// Local (R2/MEDIA) resources live under this prefix. Kept in one place so the
+// uploader, the media list and the resource library all agree on where files go.
+export const MEDIA_PREFIX = 'medias';
+
+/** Derive an object key: medias/<yyyy>/<MM>/<random>.<ext> */
 export function makeKey(filename: string, contentType: string): string {
   const ext = extByType[contentType] || (filename.split('.').pop() || 'bin');
   const now = new Date();
@@ -23,7 +27,7 @@ export function makeKey(filename: string, contentType: string): string {
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const rand = crypto.getRandomValues(new Uint8Array(8));
   const name = Array.from(rand, (b) => b.toString(16).padStart(2, '0')).join('');
-  return `${y}/${m}/${name}.${ext}`;
+  return `${MEDIA_PREFIX}/${y}/${m}/${name}.${ext}`;
 }
 
 /** Validate content length against the cap. */

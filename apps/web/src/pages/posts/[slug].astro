@@ -108,9 +108,10 @@ const postUrl = `${siteUrl}/posts/${post.slug}`;
       )}
     </header>
 
+    <div class="post-content" set:html={html} />
+
     {headings.length > 0 && (
       <nav class="toc" aria-label="目录">
-        <p class="toc-title">目录</p>
         <ul>
           {headings.map((h) => (
             <li class={`toc-item lvl-${h.level}`}>
@@ -120,8 +121,6 @@ const postUrl = `${siteUrl}/posts/${post.slug}`;
         </ul>
       </nav>
     )}
-
-    <div class="post-content" set:html={html} />
 
     <footer class="post-foot">
       {author.name && (
@@ -203,9 +202,84 @@ const postUrl = `${siteUrl}/posts/${post.slug}`;
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github.css';
 
-  document.querySelectorAll('.post-content pre code').forEach((el) => {
-    hljs.highlightElement(el);
-  });
+  const COPY_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+  const CHECK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
+
+  function enhanceCodeBlocks(root) {
+    root.querySelectorAll('.post-content pre').forEach((pre) => {
+      if (pre.parentElement && pre.parentElement.classList.contains('code-block')) return;
+
+      const code = pre.querySelector('code');
+      const langMatch = code
+        ? (code.className || '').match(/language-([\w+-]+)/)
+        : null;
+      const lang = langMatch ? langMatch[1] : (code ? (code.dataset.language || '') : '');
+      const showLang = !!lang;
+
+      // Wrap the <pre> in a .code-block container
+      const wrap = document.createElement('div');
+      wrap.className = 'code-block';
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+
+      // Header bar with language label + copy button
+      const meta = document.createElement('div');
+      meta.className = 'code-meta';
+      if (showLang) {
+        const label = document.createElement('span');
+        label.className = 'code-lang';
+        label.textContent = lang;
+        meta.appendChild(label);
+      }
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'code-copy';
+      copyBtn.type = 'button';
+      copyBtn.setAttribute('aria-label', '复制代码');
+      copyBtn.setAttribute('title', '复制代码');
+      copyBtn.innerHTML = COPY_SVG;
+      copyBtn.addEventListener('click', () => {
+        const text = (code ? code.innerText : pre.innerText) || '';
+        const done = () => {
+          copyBtn.innerHTML = CHECK_SVG;
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.innerHTML = COPY_SVG;
+            copyBtn.classList.remove('copied');
+          }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+        } else {
+          fallbackCopy(text, done);
+        }
+      });
+      meta.appendChild(copyBtn);
+      wrap.insertBefore(meta, pre);
+    });
+  }
+
+  function fallbackCopy(text, done) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      done();
+    } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  function initHighlight() {
+    document.querySelectorAll('.post-content pre code').forEach((el) => {
+      hljs.highlightElement(el);
+    });
+    enhanceCodeBlocks(document);
+  }
+  initHighlight();
+  document.addEventListener('astro:page-load', initHighlight);
 </script>
 
 <script>
@@ -214,16 +288,20 @@ const postUrl = `${siteUrl}/posts/${post.slug}`;
 
   const walineServerURL = import.meta.env.PUBLIC_WALINE_SERVER_URL || 'https://waline.tius.cn';
 
-  const el = document.getElementById('waline');
-  if (el) {
-    init({
-      el: '#waline',
-      serverURL: walineServerURL,
-      path: el.dataset.walinePath || window.location.pathname,
-      lang: document.documentElement.lang || 'zh-CN',
-      dark: 'html[data-theme="dark"]',
-      pageview: true,
-      comment: true,
-    });
+  function initComments() {
+    const el = document.getElementById('waline');
+    if (el) {
+      init({
+        el: '#waline',
+        serverURL: walineServerURL,
+        path: el.dataset.walinePath || window.location.pathname,
+        lang: document.documentElement.lang || 'zh-CN',
+        dark: 'html[data-theme="dark"]',
+        pageview: true,
+        comment: true,
+      });
+    }
   }
+  initComments();
+  document.addEventListener('astro:page-load', initComments);
 </script>

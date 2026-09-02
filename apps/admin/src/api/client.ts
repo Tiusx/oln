@@ -38,18 +38,29 @@ export interface User {
 }
 
 export interface StorageConfig {
-  provider: 'local' | 'r2' | 'github';
+  provider: 'local' | 'r2' | 's3' | 'github';
   r2: {
-    accountId: string;
+    region: string;
+    endpoint: string;
+    publicUrl: string;
+    bucket: string;
     accessKeyId: string;
     secretAccessKey: string;
-    bucketName: string;
-    endpoint?: string;
+  };
+  s3: {
+    region: string;
+    endpoint: string;
+    publicUrl: string;
+    bucket: string;
+    accessKeyId: string;
+    secretAccessKey: string;
   };
   github: {
     repo: string;
     path: string;
+    branch?: string;
     token: string;
+    publicUrl: string;
   };
 }
 
@@ -60,7 +71,7 @@ export interface ResourceItem {
   size: number;
   uploaded?: string;
   type: 'image' | 'video' | 'other';
-  provider: 'local' | 'r2' | 'github';
+  provider: 'local' | 'r2' | 's3' | 'github';
 }
 
 export interface ResourceListResult {
@@ -121,10 +132,11 @@ changePassword: (currentPassword: string, newPassword: string) =>
   saveConfig: (config: any) => request<ApiEnvelope<any>>('PUT', '/config', config),
 
   // media
-  uploadMedia: async (file: File) => {
+  uploadMedia: async (file: File, provider?: string) => {
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch('/admin/api/media/upload', {
+    const url = provider ? `/admin/api/media/upload?provider=${encodeURIComponent(provider)}` : '/admin/api/media/upload';
+    const res = await fetch(url, {
       method: 'POST',
       credentials: 'include',
       body: form,
@@ -148,8 +160,8 @@ changePassword: (currentPassword: string, newPassword: string) =>
     request<ApiEnvelope<{ status: string; message: string }>>('POST', '/config/storage/test', config),
   getStorageConfig: () => request<ApiEnvelope<StorageConfig>>('GET', '/config/storage'),
   // resources
-  listResources: (provider: 'local' | 'r2' | 'github') =>
+  listResources: (provider: 'local' | 'r2' | 's3' | 'github') =>
     request<ResourceListResult>('GET', `/resources/list?provider=${provider}`),
-  deleteResource: (key: string) =>
-    request<ApiEnvelope<null>>('DELETE', `/resources/${encodeURIComponent(key)}`),
+  deleteResource: (key: string, provider?: 'local' | 'r2' | 's3' | 'github') =>
+    request<ApiEnvelope<null>>('DELETE', `/resources/${encodeURIComponent(key)}${provider ? `?provider=${provider}` : ''}`),
 };

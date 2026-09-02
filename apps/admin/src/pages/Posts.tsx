@@ -268,14 +268,16 @@ export default function Posts() {
   const [importing, setImporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
   const [postsPerPage, setPostsPerPage] = useState(10);
+  const [homeLatestCount, setHomeLatestCount] = useState(5);
+  const [pageSize, setPageSize] = useState(15);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const limit = 20;
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
   useEffect(() => {
     api.getConfig().then((r) => {
       setPostsPerPage(r.data?.basic?.postsPerPage ?? 10);
+      setHomeLatestCount(r.data?.basic?.homeLatestCount ?? 5);
     }).catch(() => {});
   }, []);
 
@@ -291,10 +293,22 @@ export default function Posts() {
     }
   }
 
+  async function saveHomeLatestCount() {
+    try {
+      const r = await api.getConfig();
+      const cfg = r.data;
+      cfg.basic = { ...(cfg.basic || {}), homeLatestCount: Number(homeLatestCount) };
+      await api.saveConfig(cfg);
+      toast('首页最新文章数已保存', 'success');
+    } catch (e: any) {
+      toast(e.message || '保存失败', 'error');
+    }
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string> = { page: String(page), limit: String(limit) };
+      const params: Record<string, string> = { page: String(page), limit: String(pageSize) };
       if (status) params.status = status;
       if (q) params.q = q;
       const r = await api.listPosts(params);
@@ -304,7 +318,7 @@ export default function Posts() {
     } finally {
       setLoading(false);
     }
-  }, [page, status, q]);
+  }, [page, status, q, pageSize]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -333,7 +347,7 @@ export default function Posts() {
   /** 不触发 loading 状态的静默刷新（用于删除后的计数/排序校正）。 */
   async function refreshSilently() {
     try {
-      const params: Record<string, string> = { page: String(page), limit: String(limit) };
+      const params: Record<string, string> = { page: String(page), limit: String(pageSize) };
       if (status) params.status = status;
       if (q) params.q = q;
       const r = await api.listPosts(params);
@@ -478,7 +492,7 @@ export default function Posts() {
     document.body.removeChild(a); URL.revokeObjectURL(url);
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div>
@@ -506,8 +520,30 @@ export default function Posts() {
           <option value="published">已发布</option>
           <option value="draft">草稿</option>
         </select>
+        <label className="field-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>每页</label>
+        <select
+          className="field-input"
+          value={pageSize}
+          onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+          style={{ maxWidth: 90 }}
+        >
+          {[10, 15, 20, 30, 50, 100].map((n) => <option key={n} value={n}>{n} 条</option>)}
+        </select>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0 }}>
+          <label className="field-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>首页最新文章数</label>
+          <input
+            className="field-input"
+            type="number"
+            min={1}
+            max={20}
+            style={{ width: 60 }}
+            value={homeLatestCount}
+            onChange={(e) => setHomeLatestCount(Number(e.target.value))}
+          />
+          <button className="btn secondary sm" onClick={saveHomeLatestCount}>保存</button>
+        </div>
         <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0, marginLeft: 'auto' }}>
-          <label className="field-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>首页每页文章数</label>
+          <label className="field-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>文章列表每页文章数</label>
           <input
             className="field-input"
             type="number"

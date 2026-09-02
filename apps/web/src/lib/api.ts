@@ -25,7 +25,12 @@ async function getOrNull<T>(path: string, init?: RequestInit): Promise<T | null>
 }
 
 export interface SiteConfig {
-  basic: { siteName: string; tagline: string; logo: string; favicon: string; language: string; timezone: string };
+  basic: { siteName: string; tagline: string; bio: string; logo: string; favicon: string; language: string; timezone: string; homeLatestCount: number };
+  theme: {
+    active: string;
+    allowToggle: boolean;
+    preferred: 'system' | 'light' | 'dark';
+  };
   seo: { description: string; keywords: string; ogImage: string; enableSitemap: boolean; enableRobots: boolean };
   nav: {
     menu: { label: string; url: string; newWindow: boolean }[];

@@ -27,22 +27,43 @@ const builtinLinkSchema = z.object({
 });
 
 const DEFAULT_BUILTIN_LINKS = [
+  { label: '文章', url: '/posts', enabled: true },
+  { label: '归档', url: '/archive', enabled: true },
+  { label: '标签', url: '/tags', enabled: true },
   { label: '友链', url: '/links', enabled: true },
   { label: '关于', url: '/about', enabled: true },
   { label: '留言板', url: '/message', enabled: true },
   { label: '一言', url: '/hitokoto', enabled: true },
 ];
 
+// Available frontend theme ids (must match the skins defined in apps/web css).
+export const THEME_IDS = [
+  'default',
+  'ocean',
+  'forest',
+  'sunset',
+  'midnight',
+] as const;
+
+const themeSchema = z.object({
+  active: z.enum(THEME_IDS).default('default'),
+  allowToggle: z.boolean().default(true),
+  preferred: z.enum(['system', 'light', 'dark']).default('system'),
+});
+
 export const siteConfigSchema = z.object({
   basic: z.object({
     siteName: z.string().default('My Blog'),
     tagline: z.string().default(''),
+    bio: z.string().default(''),
     logo: z.string().default(''),
     favicon: z.string().default(''),
     language: z.string().default('zh-CN'),
     timezone: z.string().default('Asia/Shanghai'),
     postsPerPage: z.coerce.number().int().min(1).max(50).default(10),
+    homeLatestCount: z.coerce.number().int().min(1).max(20).default(5),
   }),
+  theme: themeSchema.default({}),
   seo: z.object({
     description: z.string().default(''),
     keywords: z.string().default(''),
@@ -94,17 +115,39 @@ export const siteConfigSchema = z.object({
 });
 
 export type SiteConfig = z.infer<typeof siteConfigSchema>;
-export const DEFAULT_SITE_CONFIG: SiteConfig = siteConfigSchema.parse({ basic: {}, seo: {}, nav: {}, author: {}, footer: {}, inject: {}, features: {} });
+export const DEFAULT_SITE_CONFIG: SiteConfig = siteConfigSchema.parse({ basic: {}, theme: {}, seo: {}, nav: {}, author: {}, footer: {}, inject: {}, features: {} });
 
 const SETTINGS_KEY = 'site';
 const CONFIG_CACHE_KEY = 'config:site';
+
+/**
+ * Ensure newer built-in nav links (e.g. 归档 / 标签) exist even for configs
+ * persisted before they were added. Existing links are preserved; missing
+ * defaults are merged in (matched by url), default entries first, then any
+ * custom/pre-existing entries the user has kept.
+ */
+function mergeBuiltinDefaults(links: { label: string; url: string; enabled: boolean }[]) {
+  const merged = [...links];
+  for (const def of [...DEFAULT_BUILTIN_LINKS].reverse()) {
+    if (!merged.some((l) => l.url === def.url)) {
+      merged.unshift(def);
+    }
+  }
+  return merged;
+}
 
 /** Load the site config from D1 (no cache). */
 export async function loadConfig(db: AppDb): Promise<SiteConfig> {
   const row = await db.select().from(settings).where(eq(settings.key, SETTINGS_KEY)).get();
   if (!row) return DEFAULT_SITE_CONFIG;
-  const parsed = siteConfigSchema.safeParse(JSON.parse(row.value));
-  return parsed.success ? parsed.data : DEFAULT_SITE_CONFIG;
+  const raw = JSON.parse(row.value) as SiteConfig;
+  const parsed = siteConfigSchema.safeParse(raw);
+  if (!parsed.success) return DEFAULT_SITE_CONFIG;
+  const config = parsed.data;
+  if (config.nav?.builtin?.links) {
+    config.nav.builtin.links = mergeBuiltinDefaults(config.nav.builtin.links);
+  }
+  return config;
 }
 
 /** Load the config with a KV read-through cache (public endpoints use this). */

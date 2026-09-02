@@ -31,17 +31,21 @@ const walineServerURL = config.features.comments.walineServerURL || 'https://wal
 
   const walineServerURL = import.meta.env.PUBLIC_WALINE_SERVER_URL || 'https://waline.tius.cn';
 
-  if (document.getElementById('waline')) {
-    init({
-      el: '#waline',
-      serverURL: walineServerURL,
-      path: '/message',
-      lang: 'zh-CN',
-      dark: 'html[data-theme="dark"]',
-      pageview: true,
-      comment: true,
-    });
+  function initComments() {
+    if (document.getElementById('waline')) {
+      init({
+        el: '#waline',
+        serverURL: walineServerURL,
+        path: '/message',
+        lang: 'zh-CN',
+        dark: 'html[data-theme="dark"]',
+        pageview: true,
+        comment: true,
+      });
+    }
   }
+  initComments();
+  document.addEventListener('astro:page-load', initComments);
 </script>
 
 <style>

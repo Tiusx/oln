@@ -5,7 +5,7 @@ import {
   loadStorageConfig,
   saveStorageConfig,
   storageConfigSchema,
-  isListable,
+  testProvider,
 } from '../services/storage';
 import { ApiError } from '../lib/http';
 
@@ -76,13 +76,12 @@ export function configRoutes(): Hono<AppBindings> {
     if (!parsed.success) {
       throw new ApiError(422, `Validation failed: ${parsed.error.issues.map((i) => i.message).join('; ')}`);
     }
+    const result = await testProvider(c.env, parsed.data);
     return c.json({
       success: true,
       data: {
-        status: isListable(parsed.data.provider) ? 'ok' : 'config-saved',
-        message: isListable(parsed.data.provider)
-          ? '本地存储连接正常'
-          : `「${parsed.data.provider}」第三方存储当前仅保存配置，列表连接尚未接入（仅本地存储可实时浏览）。`,
+        status: result.ok ? 'ok' : 'error',
+        message: result.message,
       },
     });
   });

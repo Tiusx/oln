@@ -9,6 +9,12 @@ export default defineConfig({
   base: '/',
   adapter: cloudflare(),
   site: process.env.PUBLIC_SITE_URL || 'https://example.com',
+  // Allow the dev server to be reached from other devices on the local
+  // network (e.g. http://192.168.2.158:4321) by binding to all interfaces
+  // instead of just the loopback (::1) address.
+  server: {
+    host: process.env.DEV_HOST || '0.0.0.0',
+  },
   vite: {
     resolve: {
       alias: [

@@ -4,28 +4,31 @@ import { api } from '../api/client';
 import { useToast } from '../ui/Feedback';
 
 interface ConfigShape {
-  provider: 'local' | 'r2' | 'github';
-  r2: { accountId: string; accessKeyId: string; secretAccessKey: string; bucketName: string; endpoint?: string };
-  github: { repo: string; path: string; token: string };
+  provider: 'local' | 'r2' | 's3' | 'github';
+  r2: { region: string; endpoint: string; publicUrl: string; bucket: string; accessKeyId: string; secretAccessKey: string };
+  s3: { region: string; endpoint: string; publicUrl: string; bucket: string; accessKeyId: string; secretAccessKey: string };
+  github: { repo: string; path: string; branch?: string; token: string; publicUrl: string };
 }
 
 const PROVIDERS: { key: ConfigShape['provider']; label: string; hint: string }[] = [
-  { key: 'local', label: '本地存储', hint: '使用当前部署的 Cloudflare R2 (MEDIA) 桶' },
-  { key: 'r2', label: 'Cloudflare R2', hint: '对接自有 R2 桶（当前仅保存配置）' },
-  { key: 'github', label: 'GitHub', hint: '对接 GitHub 仓库路径（当前仅保存配置）' },
+  { key: 'r2', label: 'Cloudflare R2', hint: 'S3 对接，配置可动态修改' },
+  { key: 's3', label: 'S3 兼容存储', hint: '通用 S3 API 对象存储' },
+  { key: 'github', label: 'GitHub', hint: 'Contents API 对接仓库路径' },
 ];
 
 const DEFAULT: ConfigShape = {
-  provider: 'local',
-  r2: { accountId: '', accessKeyId: '', secretAccessKey: '', bucketName: '', endpoint: '' },
-  github: { repo: '', path: '', token: '' },
+  provider: 'r2',
+  r2: { region: 'auto', endpoint: '', publicUrl: '', bucket: '', accessKeyId: '', secretAccessKey: '' },
+  s3: { region: 'auto', endpoint: '', publicUrl: '', bucket: '', accessKeyId: '', secretAccessKey: '' },
+  github: { repo: '', path: '', branch: 'main', token: '', publicUrl: '' },
 };
 
 function validate(c: ConfigShape): string {
   if (c.provider === 'r2') {
-    if (!c.r2.accountId || !c.r2.accessKeyId || !c.r2.secretAccessKey || !c.r2.bucketName) {
-      return 'R2 配置不完整，请填写 Account ID、Access Key、Secret Key 和 Bucket Name';
-    }
+    if (!c.r2.bucket || !c.r2.accessKeyId || !c.r2.secretAccessKey) return 'R2 配置不完整：请填写 Bucket、Access Key ID 和 Secret Access Key';
+  }
+  if (c.provider === 's3') {
+    if (!c.s3.bucket || !c.s3.accessKeyId || !c.s3.secretAccessKey) return 'S3 配置不完整：请填写 Bucket、Access Key ID 和 Secret Access Key';
   }
   if (c.provider === 'github') {
     if (!c.github.repo || !c.github.token) return 'GitHub 配置不完整，请填写 Repository 和 Token';
@@ -55,7 +58,13 @@ export default function Storage() {
   const load = useCallback(async () => {
     try {
       const r = await api.getStorageConfig();
-      setConfig({ ...DEFAULT, ...r.data });
+      setConfig({
+        ...DEFAULT,
+        ...r.data,
+        r2: { ...DEFAULT.r2, ...(r.data as any).r2 },
+        s3: { ...DEFAULT.s3, ...(r.data as any).s3 },
+        github: { ...DEFAULT.github, ...(r.data as any).github },
+      });
     } catch { /* 静默：保留默认值 */ }
   }, []);
 
@@ -83,9 +92,10 @@ export default function Storage() {
     setMsg('');
     try {
       const r = await api.testStorageConn(config);
-      setStatus('success');
-      setMsg(r.data.message || '连接测试成功');
-      toast('测试完成', 'success');
+      const isOk = r.data.status === 'ok';
+      setStatus(isOk ? 'success' : 'error');
+      setMsg(r.data.message || (isOk ? '连接测试成功' : '连接测试失败'));
+      toast(isOk ? '测试完成' : '连接异常', isOk ? 'success' : 'error');
     } catch (e: any) {
       setStatus('error');
       setMsg(e.message || '连接测试失败');
@@ -95,13 +105,15 @@ export default function Storage() {
 
   const setR2 = (k: keyof ConfigShape['r2']) => (v: string) =>
     setConfig((p) => ({ ...p, r2: { ...p.r2, [k]: v } }));
+  const setS3 = (k: keyof ConfigShape['s3']) => (v: string) =>
+    setConfig((p) => ({ ...p, s3: { ...p.s3, [k]: v } }));
   const setGh = (k: keyof ConfigShape['github']) => (v: string) =>
     setConfig((p) => ({ ...p, github: { ...p.github, [k]: v } }));
 
   return (
     <div>
       <h1 className="page-title">存储配置</h1>
-      <p className="muted" style={{ marginTop: 4 }}>选择资源服务提供商，并对应当前所需的连接参数。本地存储立即可用；第三方存储当前仅保存配置。</p>
+      <p className="muted" style={{ marginTop: 4 }}>选择资源服务提供商，配置驱动、动态生效——修改后保存即可，无需重新部署。R2 / S3 走 S3 API，GitHub 走 Contents API。</p>
 
       <div className="panel" style={{ marginBottom: 16 }}>
         <div className="provider-nav" role="tablist" aria-label="存储提供商">
@@ -120,22 +132,36 @@ export default function Storage() {
         </div>
       </div>
 
-      {config.provider === 'local' && (
+      {config.provider === 'r2' && (
         <div className="panel">
-          <h3 className="panel-title">本地存储</h3>
-          <p className="muted">资源将存储在当前部署的 Cloudflare R2 (MEDIA) 桶中，无需额外参数，可直接在「资源库」浏览、上传与删除。</p>
+          <h3 className="panel-title">Cloudflare R2 (S3 API)</h3>
+          <p className="muted">
+            对接 Cloudflare R2 桶：Region 通常为 auto，Endpoint 填写 R2 的 S3 API 根地址，公开域名填写绑定的自定义域（用于生成对外链接）。
+          </p>
+          <div className="field-grid">
+            <div><Field label="Region" value={config.r2.region} onChange={setR2('region')} placeholder="auto" hint="R2 填 auto" /></div>
+            <div><Field label="Bucket" value={config.r2.bucket} onChange={setR2('bucket')} placeholder="my-r2-bucket" /></div>
+            <div style={{ gridColumn: '1 / -1' }}><Field label="Endpoint（S3 API 根地址）" value={config.r2.endpoint} onChange={setR2('endpoint')} placeholder="https://<account-id>.r2.cloudflarestorage.com" hint="不含桶名，不含末尾 /" /></div>
+            <div style={{ gridColumn: '1 / -1' }}><Field label="公开域名（自定义域，可选）" value={config.r2.publicUrl} onChange={setR2('publicUrl')} placeholder="https://r2.example.com" hint="绑定自定义域后填写，用于生成对外访问链接。留空则用 S3 Endpoint 拼接。" /></div>
+            <div><Field label="Access Key ID" value={config.r2.accessKeyId} onChange={setR2('accessKeyId')} placeholder="R2 Access Key" /></div>
+            <div><Field label="Secret Access Key" value={config.r2.secretAccessKey} onChange={setR2('secretAccessKey')} type="password" placeholder="R2 Secret Key" /></div>
+          </div>
         </div>
       )}
 
-      {config.provider === 'r2' && (
+      {config.provider === 's3' && (
         <div className="panel">
-          <h3 className="panel-title">Cloudflare R2 参数</h3>
+          <h3 className="panel-title">S3 兼容对象存储</h3>
+          <p className="muted">
+            对接任意 S3 兼容存储：填写 Region、Endpoint、Bucket 及 Access/Secret Key。如有自定义域请填写公开域名。
+          </p>
           <div className="field-grid">
-            <div><Field label="Account ID" value={config.r2.accountId} onChange={setR2('accountId')} placeholder="xxxxxxxxxxxxxxxx" hint="Cloudflare Dashboard 中的 Account ID" /></div>
-            <div><Field label="Bucket Name" value={config.r2.bucketName} onChange={setR2('bucketName')} placeholder="my-bucket" /></div>
-            <div><Field label="Access Key ID" value={config.r2.accessKeyId} onChange={setR2('accessKeyId')} placeholder="R2 API Token Access Key" /></div>
-            <div><Field label="Secret Access Key" value={config.r2.secretAccessKey} onChange={setR2('secretAccessKey')} type="password" placeholder="R2 API Token Secret Key" /></div>
-            <div style={{ gridColumn: '1 / -1' }}><Field label="Endpoint (可选)" value={config.r2.endpoint || ''} onChange={setR2('endpoint')} placeholder="https://<account>.r2.cloudflarestorage.com" /></div>
+            <div><Field label="Region" value={config.s3.region} onChange={setS3('region')} placeholder="auto" hint="填对应区域" /></div>
+            <div><Field label="Bucket" value={config.s3.bucket} onChange={setS3('bucket')} placeholder="my-bucket" /></div>
+            <div style={{ gridColumn: '1 / -1' }}><Field label="Endpoint（S3 API 根地址）" value={config.s3.endpoint} onChange={setS3('endpoint')} placeholder="https://s3.amazonaws.com" hint="不含桶名，不含末尾 /" /></div>
+            <div style={{ gridColumn: '1 / -1' }}><Field label="公开域名（自定义域，可选）" value={config.s3.publicUrl} onChange={setS3('publicUrl')} placeholder="https://cdn.example.com" hint="绑定了自定义域时填写，用于生成对外访问链接。留空则用 S3 Endpoint 拼接。" /></div>
+            <div><Field label="Access Key ID" value={config.s3.accessKeyId} onChange={setS3('accessKeyId')} placeholder="S3 Access Key" /></div>
+            <div><Field label="Secret Access Key" value={config.s3.secretAccessKey} onChange={setS3('secretAccessKey')} type="password" placeholder="S3 Secret Key" /></div>
           </div>
         </div>
       )}
@@ -143,10 +169,13 @@ export default function Storage() {
       {config.provider === 'github' && (
         <div className="panel">
           <h3 className="panel-title">GitHub 参数</h3>
+          <p className="muted">通过 GitHub Contents API 对接仓库目录：可远程浏览、删除文件并生成 raw 链接。需拥有该仓库写入权限的 Personal Access Token。</p>
           <div className="field-grid">
             <div><Field label="Repository (owner/repo)" value={config.github.repo} onChange={setGh('repo')} placeholder="username/repo-name" /></div>
-            <div><Field label="Path" value={config.github.path} onChange={setGh('path')} placeholder="uploads/" /></div>
+            <div><Field label="Path（仓库内根目录开始，如 medias/）" value={config.github.path} onChange={setGh('path')} placeholder="medias/" /></div>
+            <div><Field label="Branch" value={config.github.branch || ''} onChange={setGh('branch')} placeholder="main" /></div>
             <div style={{ gridColumn: '1 / -1' }}><Field label="Token (Personal Access Token)" value={config.github.token} onChange={setGh('token')} type="password" placeholder="ghp_xxxxxxxxxxxx" hint="拥有对上面仓库 Contents 写入权限的 token" /></div>
+            <div style={{ gridColumn: '1 / -1' }}><Field label="加速域名（自定义域，可选）" value={config.github.publicUrl} onChange={setGh('publicUrl')} placeholder="https://gh-proxy.example.com" hint="用于加速 raw 资源访问，Eg. jsDelivr、jsProxy 或自建反代。留空则用 raw.githubusercontent.com。" /></div>
           </div>
         </div>
       )}
