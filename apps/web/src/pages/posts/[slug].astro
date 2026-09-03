@@ -1,161 +1,115 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { api } from '../../lib/api';
-import { formatDate, readingTime } from '../../lib/markdown';
-
-export const prerender = false;
+import Layout from '@/layouts/Layout.astro';
+import { api } from '@/lib/api';
+import { getCollection, render } from 'astro:content';
 
 const { slug } = Astro.params;
-const config = await api.config();
-const post = await api.post(slug!);
+if (!slug) return Astro.redirect('/404');
+
+let post: Awaited<ReturnType<typeof api.post>>;
+try {
+  post = await api.post(slug);
+} catch {
+  post = null;
+}
+
+const config = await api.config().catch(() => null);
+const comments = config?.features.comments ?? null;
+
+let LocalContent: any = null;
+let localData: { title: string; description?: string; pubDate: Date; tags: string[] } | null = null;
 
 if (!post) {
-  return Astro.redirect('/404');
-}
-
-const html = post.html || '';
-
-// --- TOC: extract h2/h3 from rendered HTML (server adds id="heading-...") ---
-const headings: { level: number; id: string; text: string }[] = [];
-for (const match of html.matchAll(/<h([23]) id="([^"]+)">(.*?)<\/h\1>/g)) {
-  const text = match[3]
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-  headings.push({ level: Number(match[1]), id: match[2], text });
-}
-
-// --- Prev / next by chronology (published order) ---
-let prevPost: { slug: string; title: string } | null = null;
-let nextPost: { slug: string; title: string } | null = null;
-try {
-  const list = await api.posts(1, 50);
-  const ordered = list.items
-    .filter((p) => p.slug !== post.slug)
-    .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
-  const idx = ordered.findIndex((p) => p.slug === post.slug);
-  if (idx === -1) {
-    // current post not in fetched window; fall back to first fetched
-    if (ordered.length) {
-      // compare against list containing current to name prev/next
-      const all = [...list.items].sort((a, b) =>
-        (b.publishedAt || '').localeCompare(a.publishedAt || ''),
-      );
-      const cur = all.findIndex((p) => p.slug === post.slug);
-      if (cur > 0) prevPost = { slug: all[cur - 1].slug, title: all[cur - 1].title };
-      if (cur !== -1 && cur < all.length - 1)
-        nextPost = { slug: all[cur + 1].slug, title: all[cur + 1].title };
-    }
-  } else {
-    if (idx < ordered.length - 1)
-      nextPost = { slug: ordered[idx + 1].slug, title: ordered[idx + 1].title };
-    if (idx > 0) prevPost = { slug: ordered[idx - 1].slug, title: ordered[idx - 1].title };
+  const posts = await getCollection('posts');
+  const match = posts.find((p) => p.id.replace(/\.md$/, '') === slug);
+  if (match) {
+    const rendered = await render(match);
+    LocalContent = rendered.Content;
+    localData = match.data;
   }
-} catch {
-  /* ignore */
+  if (!localData) return Astro.redirect('/404');
 }
 
-const reading = readingTime(html.replace(/<[^>]+>/g, ' '), true);
-const cover = post.coverImage;
-const comments = config.features.comments;
-const author = config.author;
-const siteUrl = (Astro.site?.href || '').replace(/\/$/, '');
-const postUrl = `${siteUrl}/posts/${post.slug}`;
+const tags = post
+  ? post.tags.map((t) => t.name)
+  : localData!.tags;
+
+function formatDate(dateStr: string | null | Date): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function formatDateFull(dateStr: string | null | Date): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+}
 ---
 
 <Layout
-  title={post.seoTitle || post.title}
-  description={(post.seoDescription || post.excerpt) ?? undefined}
+  title={post?.seoTitle || post?.title || localData?.title}
+  description={post?.seoDescription || post?.excerpt || localData?.description || ''}
   config={config}
   type="article"
-  image={cover ?? undefined}
-  canonical={postUrl}
+  image={post?.coverImage || undefined}
 >
-  <article class="article">
-    <header class="article-head">
-      {cover && (
-        <div class="article-cover">
-          <img src={cover} alt={post.title} />
-        </div>
-      )}
-      <h1>{post.pinned && <span class="pin-badge">置顶</span>}{post.title}</h1>
-      <div class="article-meta">
-        <time datetime={post.publishedAt ?? undefined}>{formatDate(post.publishedAt, config.basic.language)}</time>
-        {post.updatedAt && post.updatedAt !== post.publishedAt && (
-          <span class="edit-date">(更新于 {formatDate(post.updatedAt, config.basic.language)})</span>
-        )}
-        {post.category && <><span class="dot">·</span><a href={`/categories/${post.category.slug}`}>{post.category.name}</a></>}
-        {reading && <><span class="dot">·</span><span class="reading-time">约 {reading} 阅读</span></>}
-        {(comments.enabled && post.commentsEnabled !== false) && (
-          <>
-            <span class="dot">·</span>
-            <span class="meta-stat">浏览 <span class="waline-pageview-count" data-path={`/posts/${post.slug}`} />次</span>
-            <span class="dot">·</span>
-            <span class="meta-stat">评论 <span class="waline-comment-count" data-path={`/posts/${post.slug}`} /></span>
-          </>
+  <article class="mx-auto max-w-4xl px-6 py-10">
+    <!-- 分类条 -->
+    {post?.category && (
+      <div class="mb-5">
+        <span class="text-xs font-medium text-muted-foreground tracking-widest uppercase">
+          {post.category.name}
+        </span>
+      </div>
+    )}
+
+    <header class="mb-10">
+      <h1 class="text-2xl md:text-3xl font-extrabold leading-tight mb-4 font-serif">
+        {post?.title || localData!.title}
+      </h1>
+      <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <time class="font-mono">{post ? formatDate(post.publishedAt) : formatDate(localData!.pubDate)}</time>
+        {post?.updatedAt && (
+          <span class="text-xs text-muted-foreground/70">
+            更新于 {formatDateFull(post.updatedAt)}
+          </span>
         )}
       </div>
-      {post.tags.length > 0 && (
-        <div class="article-tags">
-          {post.tags.map((t) => (
-            <a class="tag-chip" href={`/tags/${t.slug}`}>{t.name}</a>
+      {tags.length > 0 && (
+        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-4 text-sm text-muted-foreground">
+          {tags.map((tag) => (
+            <span class="hover:text-accent transition-colors">
+              <span class="text-accent">#</span> {tag}
+            </span>
           ))}
         </div>
       )}
     </header>
 
-    <div class="post-content" set:html={html} />
-
-    {headings.length > 0 && (
-      <nav class="toc" aria-label="目录">
-        <ul>
-          {headings.map((h) => (
-            <li class={`toc-item lvl-${h.level}`}>
-              <a href={`#${h.id}`}>{h.text}</a>
-            </li>
-          ))}
-        </ul>
-      </nav>
+    {post?.coverImage && (
+      <img
+        src={post.coverImage}
+        alt={post.title}
+        class="w-full mb-10 border border-border"
+        loading="lazy"
+      />
     )}
 
-    <footer class="post-foot">
-      {author.name && (
-        <div class="author-box">
-          {author.avatar && <img class="author-avatar" src={author.avatar} alt={author.name} />}
-          <div>
-            <div class="author-name">{author.name}</div>
-            {author.bio && <div class="author-bio">{author.bio}</div>}
-          </div>
-        </div>
-      )}
-    </footer>
-
-    {(prevPost || nextPost) && (
-      <nav class="post-nav" aria-label="上一篇 / 下一篇">
-        {prevPost ? (
-          <a href={`/posts/${prevPost.slug}`}>
-            <div class="nav-label">上一篇</div>
-            <div class="nav-title">{prevPost.title}</div>
-          </a>
-        ) : <span />}
-        {nextPost ? (
-          <a class="next" href={`/posts/${nextPost.slug}`}>
-            <div class="nav-label">下一篇</div>
-            <div class="nav-title">{nextPost.title}</div>
-          </a>
-        ) : <span />}
-      </nav>
+    {post ? (
+      <div class="prose max-w-none" set:html={post.html} />
+    ) : LocalContent && (
+      <div class="prose max-w-none">
+        <LocalContent />
+      </div>
     )}
 
-    {(comments.enabled && post.commentsEnabled !== false) && (
+    {comments && comments.enabled && post?.commentsEnabled !== false && (
       <section class="comments" id="comments">
         <h2 class="comments-title">评论</h2>
         {comments.provider === 'giscus' && comments.giscusRepo && (
           <script
+            is:inline
             src="https://giscus.app/client.js"
             data-repo={comments.giscusRepo}
             data-repo-id={comments.giscusRepoId}
@@ -167,7 +121,7 @@ const postUrl = `${siteUrl}/posts/${post.slug}`;
             data-emit-metadata="0"
             data-input-position="bottom"
             data-theme="preferred_color_scheme"
-            data-lang={config.basic.language === 'zh-CN' ? 'zh-CN' : 'en'}
+            data-lang="zh-CN"
             data-loading="lazy"
             crossorigin="anonymous"
             async
@@ -175,6 +129,7 @@ const postUrl = `${siteUrl}/posts/${post.slug}`;
         )}
         {comments.provider === 'utterances' && (comments.utterancesRepo || comments.giscusRepo) && (
           <script
+            is:inline
             src="https://utteranc.es/client.js"
             data-repo={comments.utterancesRepo || comments.giscusRepo}
             data-issue-term="pathname"
@@ -185,102 +140,21 @@ const postUrl = `${siteUrl}/posts/${post.slug}`;
           />
         )}
         {comments.provider === 'waline' && (
-          <div
-            id="waline"
-            data-waline-path={`/posts/${post.slug}`}
-          ></div>
+          <div id="waline" data-waline-path={`/posts/${slug}`}></div>
         )}
         {!['giscus', 'utterances', 'waline'].includes(comments.provider) && (
-          <p class="muted">评论系统尚未配置（请在后台"评论系统"中配置评论）。</p>
+          <p class="comments-note">评论系统尚未配置（请在后台「评论系统」中配置）。</p>
         )}
       </section>
     )}
+
+    <div class="mt-16 pt-8">
+      <a href="/" class="inline-flex items-center gap-2 text-sm font-serif text-muted-foreground hover:text-accent transition-colors">
+        <span>&larr;</span> 返回文章列表
+      </a>
+    </div>
   </article>
 </Layout>
-
-<script>
-  import hljs from 'highlight.js';
-  import 'highlight.js/styles/github.css';
-
-  const COPY_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
-  const CHECK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
-
-  function enhanceCodeBlocks(root) {
-    root.querySelectorAll('.post-content pre').forEach((pre) => {
-      if (pre.parentElement && pre.parentElement.classList.contains('code-block')) return;
-
-      const code = pre.querySelector('code');
-      const langMatch = code
-        ? (code.className || '').match(/language-([\w+-]+)/)
-        : null;
-      const lang = langMatch ? langMatch[1] : (code ? (code.dataset.language || '') : '');
-      const showLang = !!lang;
-
-      // Wrap the <pre> in a .code-block container
-      const wrap = document.createElement('div');
-      wrap.className = 'code-block';
-      pre.parentNode.insertBefore(wrap, pre);
-      wrap.appendChild(pre);
-
-      // Header bar with language label + copy button
-      const meta = document.createElement('div');
-      meta.className = 'code-meta';
-      if (showLang) {
-        const label = document.createElement('span');
-        label.className = 'code-lang';
-        label.textContent = lang;
-        meta.appendChild(label);
-      }
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'code-copy';
-      copyBtn.type = 'button';
-      copyBtn.setAttribute('aria-label', '复制代码');
-      copyBtn.setAttribute('title', '复制代码');
-      copyBtn.innerHTML = COPY_SVG;
-      copyBtn.addEventListener('click', () => {
-        const text = (code ? code.innerText : pre.innerText) || '';
-        const done = () => {
-          copyBtn.innerHTML = CHECK_SVG;
-          copyBtn.classList.add('copied');
-          setTimeout(() => {
-            copyBtn.innerHTML = COPY_SVG;
-            copyBtn.classList.remove('copied');
-          }, 1800);
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
-        } else {
-          fallbackCopy(text, done);
-        }
-      });
-      meta.appendChild(copyBtn);
-      wrap.insertBefore(meta, pre);
-    });
-  }
-
-  function fallbackCopy(text, done) {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    try {
-      document.execCommand('copy');
-      done();
-    } catch (e) {}
-    document.body.removeChild(ta);
-  }
-
-  function initHighlight() {
-    document.querySelectorAll('.post-content pre code').forEach((el) => {
-      hljs.highlightElement(el);
-    });
-    enhanceCodeBlocks(document);
-  }
-  initHighlight();
-  document.addEventListener('astro:page-load', initHighlight);
-</script>
 
 <script>
   import { init } from '@waline/client';
@@ -295,7 +169,7 @@ const postUrl = `${siteUrl}/posts/${post.slug}`;
         el: '#waline',
         serverURL: walineServerURL,
         path: el.dataset.walinePath || window.location.pathname,
-        lang: document.documentElement.lang || 'zh-CN',
+        lang: 'zh-CN',
         dark: 'html[data-theme="dark"]',
         pageview: true,
         comment: true,

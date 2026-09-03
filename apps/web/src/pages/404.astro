@@ -1,17 +1,13 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { api } from '../lib/api';
-
-export const prerender = false;
-
-Astro.response.status = 404;
-const config = await api.config();
+import Layout from '@/layouts/Layout.astro';
 ---
 
-<Layout title="页面未找到" config={config}>
-  <div class="not-found">
-    <h1>404</h1>
-    <p>抱歉，你访问的页面不存在或已被移除。</p>
-    <a class="btn" href="/">返回首页</a>
-  </div>
+<Layout title="404">
+  <section class="mx-auto max-w-4xl px-6 py-24 text-center">
+    <h1 class="text-7xl md:text-8xl font-extrabold tracking-tighter mb-4 font-serif">404</h1>
+    <p class="text-lg text-muted-foreground mb-8">抱歉，这个页面不存在或已被移动。</p>
+    <a href="/" class="inline-flex items-center gap-2 text-sm font-serif text-foreground hover:text-accent transition-colors">
+      返回首页 &rarr;
+    </a>
+  </section>
 </Layout>

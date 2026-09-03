@@ -1,0 +1,20 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { api } from '../lib/api';
+import { Button } from '../components/ui/button';
+
+export const prerender = false;
+
+Astro.response.status = 404;
+const config = await api.config();
+---
+
+<Layout title="页面未找到" config={config}>
+  <div class="not-found">
+    <h1>404</h1>
+    <p>抱歉，你访问的页面不存在或已被移除。</p>
+    <Button asChild>
+      <a href="/">返回首页</a>
+    </Button>
+  </div>
+</Layout>

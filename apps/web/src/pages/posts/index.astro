@@ -1,68 +1,121 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { api } from '../../lib/api';
-import { formatDateShort } from '../../lib/markdown';
+import Layout from '@/layouts/Layout.astro';
+import { api } from '@/lib/api';
+import { getCollection } from 'astro:content';
 
-export const prerender = false;
+const config = await api.config().catch(() => null);
+const perPage = config?.basic.postsPerPage || 10;
+const pageParam = Math.max(Number(Astro.url.searchParams.get('page') || 1), 1);
 
-const config = await api.config();
-const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
-const limit = config.basic.postsPerPage || 10;
-const data = await api.posts(page, limit);
-const posts = data.items;
-const totalPages = Math.max(1, Math.ceil(data.total / limit));
-const base = '/posts';
+let posts: Awaited<ReturnType<typeof api.posts>> | null = null;
+let error = false;
+try {
+  posts = await api.posts(pageParam, Math.min(perPage, 50));
+} catch {
+  error = true;
+}
 
-const title = page > 1 ? `文章 - 第 ${page} 页` : '文章';
+const localPosts = await getCollection('posts');
+const fallbackLocal = localPosts.sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime());
 
-// Group posts by year, years sorted desc
-const postsByYear = posts.reduce((acc, post) => {
-  const year = new Date(post.publishedAt).getFullYear().toString();
-  if (!acc[year]) acc[year] = [];
-  acc[year].push(post);
-  return acc;
-}, {} as Record<string, typeof posts>);
-const sortedYears = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
+interface Item {
+  slug: string;
+  title: string;
+  date: string | null | Date;
+  excerpt?: string | null;
+  category?: { name: string; slug: string } | null;
+}
+
+function formatDateShort(dateStr: string | null | Date): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}.${`0${d.getMonth() + 1}`.slice(-2)}.${`0${d.getDate()}`.slice(-2)}`;
+}
+
+let items: Item[] = [];
+let total = 0;
+if (error && posts === null) {
+  items = fallbackLocal.map((p) => ({
+    slug: p.id.replace(/\.md$/, ''),
+    title: p.data.title,
+    date: p.data.pubDate,
+    excerpt: p.data.description,
+  }));
+  total = fallbackLocal.length;
+} else if (posts) {
+  items = posts.items.map((p) => ({
+    slug: p.slug,
+    title: p.title,
+    date: p.publishedAt,
+    excerpt: p.excerpt,
+    category: p.category,
+  }));
+  total = posts.total;
+}
+
+const totalPages = Math.max(1, Math.ceil(total / perPage));
+const currentPage = Math.min(pageParam, totalPages);
+const baseUrl = '/posts';
+const pageTitle = currentPage > 1 ? `文章 - 第 ${currentPage} 页` : '文章';
 ---
 
-<Layout title={title} description={config.seo.description} config={config}>
-  <header class="page-head">
-    <h1>文章</h1>
-    {posts.length > 0 && <p class="page-sub">共 {data.total} 篇文章</p>}
-  </header>
+<Layout title={pageTitle} description={config?.seo.description} config={config}>
+  <section class="mx-auto max-w-4xl px-6 pt-12 pb-12">
+    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-3 font-serif">文章</h1>
+    <p class="text-base text-muted-foreground mb-10">共 {total} 篇文章。</p>
 
-  {posts.length === 0 ? (
-    <div class="empty">
-      <p>暂无文章，敬请期待。</p>
-    </div>
-  ) : (
-    <div class="min-list">
-      {sortedYears.map((year) => (
-        <section class="min-year">
-          <span class="min-year-label">{year}</span>
-          <ul class="min-items">
-            {postsByYear[year].map((post) => (
-              <li class="min-item">
-                <a class="min-link" href={`/posts/${post.slug}`}>
-                  {post.pinned && <span class="min-pin">置顶</span>}
-                  <span class="min-name">{post.title}</span>
-                  <time class="min-date" datetime={post.publishedAt ?? undefined}>
-                    {formatDateShort(post.publishedAt, config.basic.language)}
-                  </time>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
-  )}
+    {error && posts === null && (
+      <p class="text-muted-foreground my-4 text-xs">（本地示例文章，服务器未连接）</p>
+    )}
 
-  {totalPages > 1 && (
-    <nav class="pagination">
-      {page > 1 && <a href={`${base}?page=${page - 1}`}>« 上一页</a>}
-      <span class="page-info">第 {page} / {totalPages} 页</span>
-      {page < totalPages && <a href={`${base}?page=${page + 1}`}>下一页 »</a>}
-    </nav>
-  )}
+    {items.length > 0 ? (
+      <div>
+        {items.map((post) => (
+          <a
+            href={`/posts/${post.slug}`}
+            class="group flex flex-col md:flex-row md:items-baseline gap-1 md:gap-6 py-5"
+          >
+            <time class="text-xs text-muted-foreground font-mono tabular-nums md:w-24 md:shrink-0 md:text-sm">
+              {formatDateShort(post.date)}
+            </time>
+            <span class="flex flex-wrap items-baseline gap-x-2 text-[15px] leading-snug md:min-w-0">
+              <span class="group-hover:underline underline-offset-4 transition-colors">
+                {post.title}
+              </span>
+              {post.category && (
+                <span class="text-xs text-muted-foreground font-sans">
+                  · {post.category.name}
+                </span>
+              )}
+            </span>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <p class="text-muted-foreground py-8">暂无文章。</p>
+    )}
+
+    {totalPages > 1 && (
+      <nav class="flex items-center justify-between mt-10 pt-6 border-t border-border text-sm font-serif">
+        {currentPage > 1 ? (
+          <a
+            href={currentPage === 2 ? baseUrl : `${baseUrl}?page=${currentPage - 1}`}
+            class="hover:underline underline-offset-4 text-foreground"
+          >
+            &larr; 上一页
+          </a>
+        ) : (
+          <span class="text-muted-foreground">&larr; 上一页</span>
+        )}
+        <span class="text-muted-foreground">第 {currentPage} / {totalPages} 页</span>
+        {currentPage < totalPages ? (
+          <a href={`${baseUrl}?page=${currentPage + 1}`} class="hover:underline underline-offset-4 text-foreground">
+            下一页 &rarr;
+          </a>
+        ) : (
+          <span class="text-muted-foreground">下一页 &rarr;</span>
+        )}
+      </nav>
+    )}
+  </section>
 </Layout>

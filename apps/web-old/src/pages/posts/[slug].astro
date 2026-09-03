@@ -1,0 +1,272 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { api } from '../../lib/api';
+import { formatDate, readingTime } from '../../lib/markdown';
+import { ArticleHeader } from '../../components/ArticleHeader';
+import { AuthorBox } from '../../components/AuthorBox';
+import { PostNav } from '../../components/PostNav';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+const config = await api.config();
+const post = await api.post(slug!);
+
+if (!post) {
+  return Astro.redirect('/404');
+}
+
+const html = post.html || '';
+
+const headings: { level: number; id: string; text: string }[] = [];
+for (const match of html.matchAll(/<h([23]) id="([^"]+)">(.*?)<\/h\1>/g)) {
+  const text = match[3]
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+  headings.push({ level: Number(match[1]), id: match[2], text });
+}
+
+let prevPost: { slug: string; title: string } | null = null;
+let nextPost: { slug: string; title: string } | null = null;
+try {
+  const list = await api.posts(1, 50);
+  const ordered = list.items
+    .filter((p) => p.slug !== post.slug)
+    .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
+  const idx = ordered.findIndex((p) => p.slug === post.slug);
+  if (idx === -1) {
+    if (ordered.length) {
+      const all = [...list.items].sort((a, b) =>
+        (b.publishedAt || '').localeCompare(a.publishedAt || ''),
+      );
+      const cur = all.findIndex((p) => p.slug === post.slug);
+      if (cur > 0) prevPost = { slug: all[cur - 1].slug, title: all[cur - 1].title };
+      if (cur !== -1 && cur < all.length - 1)
+        nextPost = { slug: all[cur + 1].slug, title: all[cur + 1].title };
+    }
+  } else {
+    if (idx < ordered.length - 1)
+      nextPost = { slug: ordered[idx + 1].slug, title: ordered[idx + 1].title };
+    if (idx > 0) prevPost = { slug: ordered[idx - 1].slug, title: ordered[idx - 1].title };
+  }
+} catch {
+  /* ignore */
+}
+
+const reading = readingTime(html.replace(/<[^>]+>/g, ' '), true);
+const cover = post.coverImage;
+const comments = config.features.comments;
+const author = config.author;
+const siteUrl = (Astro.site?.href || '').replace(/\/$/, '');
+const postUrl = `${siteUrl}/posts/${post.slug}`;
+const updatedLabel =
+  post.updatedAt && post.updatedAt !== post.publishedAt
+    ? `（更新于 ${formatDate(post.updatedAt, config.basic.language)}）`
+    : null;
+---
+
+<Layout
+  title={post.seoTitle || post.title}
+  description={(post.seoDescription || post.excerpt) ?? undefined}
+  config={config}
+  type="article"
+  image={cover ?? undefined}
+  canonical={postUrl}
+>
+  <article class="article">
+    <ArticleHeader
+      title={post.title}
+      date={formatDate(post.publishedAt, config.basic.language)}
+      updatedLabel={updatedLabel}
+      category={post.category}
+      readingLabel={reading}
+      tags={post.tags}
+      pinned={post.pinned}
+    />
+
+    {cover && (
+      <figure class="mb-8 overflow-hidden rounded-xl border border-border">
+        <img src={cover} alt={post.title} />
+      </figure>
+    )}
+
+    <div class="post-content prose" set:html={html} />
+
+    {headings.length > 0 && (
+      <nav class="toc" aria-label="目录">
+        <ul>
+          {headings.map((h) => (
+            <li class={`toc-item lvl-${h.level}`}>
+              <a href={`#${h.id}`}>{h.text}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )}
+
+    {author.name && (
+      <AuthorBox
+        name={author.name}
+        avatar={author.avatar || undefined}
+        bio={author.bio || undefined}
+      />
+    )}
+
+    <PostNav prev={prevPost} next={nextPost} />
+
+    {(comments.enabled && post.commentsEnabled !== false) && (
+      <section class="comments" id="comments">
+        <h2 class="comments-title">评论</h2>
+        {comments.provider === 'giscus' && comments.giscusRepo && (
+          <script
+            src="https://giscus.app/client.js"
+            data-repo={comments.giscusRepo}
+            data-repo-id={comments.giscusRepoId}
+            data-category={comments.giscusCategory}
+            data-category-id={comments.giscusCategoryId}
+            data-mapping="pathname"
+            data-strict="0"
+            data-reactions-enabled="1"
+            data-emit-metadata="0"
+            data-input-position="bottom"
+            data-theme="preferred_color_scheme"
+            data-lang={config.basic.language === 'zh-CN' ? 'zh-CN' : 'en'}
+            data-loading="lazy"
+            crossorigin="anonymous"
+            async
+          />
+        )}
+        {comments.provider === 'utterances' && (comments.utterancesRepo || comments.giscusRepo) && (
+          <script
+            src="https://utteranc.es/client.js"
+            data-repo={comments.utterancesRepo || comments.giscusRepo}
+            data-issue-term="pathname"
+            data-theme="preferred_color_scheme"
+            data-label="comments"
+            crossorigin="anonymous"
+            async
+          />
+        )}
+        {comments.provider === 'waline' && (
+          <div
+            id="waline"
+            data-waline-path={`/posts/${post.slug}`}
+          ></div>
+        )}
+        {!['giscus', 'utterances', 'waline'].includes(comments.provider) && (
+          <p class="muted">评论系统尚未配置（请在后台"评论系统"中配置评论）。</p>
+        )}
+      </section>
+    )}
+  </article>
+</Layout>
+
+<script>
+  import hljs from 'highlight.js';
+  import 'highlight.js/styles/github.css';
+
+  const COPY_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+  const CHECK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
+
+  function enhanceCodeBlocks(root) {
+    root.querySelectorAll('.post-content pre').forEach((pre) => {
+      if (pre.parentElement && pre.parentElement.classList.contains('code-block')) return;
+      const code = pre.querySelector('code');
+      const langMatch = code
+        ? (code.className || '').match(/language-([\w+-]+)/)
+        : null;
+      const lang = langMatch ? langMatch[1] : (code ? (code.dataset.language || '') : '');
+      const showLang = !!lang;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'code-block';
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+
+      const meta = document.createElement('div');
+      meta.className = 'code-meta';
+      if (showLang) {
+        const label = document.createElement('span');
+        label.className = 'code-lang';
+        label.textContent = lang;
+        meta.appendChild(label);
+      }
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'code-copy';
+      copyBtn.type = 'button';
+      copyBtn.setAttribute('aria-label', '复制代码');
+      copyBtn.setAttribute('title', '复制代码');
+      copyBtn.innerHTML = COPY_SVG;
+      copyBtn.addEventListener('click', () => {
+        const text = (code ? code.innerText : pre.innerText) || '';
+        const done = () => {
+          copyBtn.innerHTML = CHECK_SVG;
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.innerHTML = COPY_SVG;
+            copyBtn.classList.remove('copied');
+          }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+        } else {
+          fallbackCopy(text, done);
+        }
+      });
+      meta.appendChild(copyBtn);
+      wrap.insertBefore(meta, pre);
+    });
+  }
+
+  function fallbackCopy(text, done) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      done();
+    } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  function initHighlight() {
+    document.querySelectorAll('.post-content pre code').forEach((el) => {
+      hljs.highlightElement(el);
+    });
+    enhanceCodeBlocks(document);
+  }
+  initHighlight();
+  document.addEventListener('astro:page-load', initHighlight);
+</script>
+
+<script>
+  import { init } from '@waline/client';
+  import '@waline/client/style';
+
+  const walineServerURL = import.meta.env.PUBLIC_WALINE_SERVER_URL || 'https://waline.tius.cn';
+
+  function initComments() {
+    const el = document.getElementById('waline');
+    if (el) {
+      init({
+        el: '#waline',
+        serverURL: walineServerURL,
+        path: el.dataset.walinePath || window.location.pathname,
+        lang: document.documentElement.lang || 'zh-CN',
+        dark: 'html[data-theme="dark"]',
+        pageview: true,
+        comment: true,
+      });
+    }
+  }
+  initComments();
+  document.addEventListener('astro:page-load', initComments);
+</script>

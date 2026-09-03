@@ -1,0 +1,47 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { api } from '../../lib/api';
+import { FeedList } from '../../components/FeedList';
+import { Pagination } from '../../components/Pagination';
+import { formatDateShort } from '../../lib/markdown';
+
+export const prerender = false;
+
+const config = await api.config();
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
+const limit = config.basic.postsPerPage || 10;
+const data = await api.posts(page, limit);
+const posts = data.items;
+const totalPages = Math.max(1, Math.ceil(data.total / limit));
+const base = '/posts';
+
+const title = page > 1 ? `文章 - 第 ${page} 页` : '文章';
+---
+
+<Layout title={title} description={config.seo.description} config={config}>
+  <header class="page-head">
+    <h1>文章</h1>
+    {posts.length > 0 && <p class="page-sub">共 {data.total} 篇文章</p>}
+  </header>
+
+  {posts.length === 0 ? (
+    <div class="empty">
+      <p>暂无文章，敬请期待。</p>
+    </div>
+  ) : (
+    <FeedList
+      title="全部文章"
+      items={posts.map((post) => ({
+        slug: post.slug,
+        title: post.title,
+        excerpt: post.excerpt,
+        date: formatDateShort(post.publishedAt, config.basic.language),
+        category: post.category,
+        tags: post.tags,
+        pinned: post.pinned,
+      }))}
+    />
+  )}
+
+  <Pagination page={page} totalPages={totalPages} base={base} />
+</Layout>

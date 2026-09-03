@@ -1,0 +1,48 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { api } from '../lib/api';
+
+export const prerender = false;
+
+const config = await api.config();
+---
+
+<Layout title="留言板" config={config}>
+  <header class="page-head">
+    <h1>留言板</h1>
+    <p class="page-sub">
+      欢迎留下您的足迹
+      · 浏览 <span class="waline-pageview-count" data-path="/message" />次
+      · 评论 <span class="waline-comment-count" data-path="/message" />条
+    </p>
+  </header>
+
+  <main class="content">
+    <div class="waline-wrap">
+      <div id="waline"></div>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  import { init } from '@waline/client';
+  import '@waline/client/style';
+
+  const walineServerURL = import.meta.env.PUBLIC_WALINE_SERVER_URL || 'https://waline.tius.cn';
+
+  function initComments() {
+    if (document.getElementById('waline')) {
+      init({
+        el: '#waline',
+        serverURL: walineServerURL,
+        path: '/message',
+        lang: 'zh-CN',
+        dark: 'html[data-theme="dark"]',
+        pageview: true,
+        comment: true,
+      });
+    }
+  }
+  initComments();
+  document.addEventListener('astro:page-load', initComments);
+</script>

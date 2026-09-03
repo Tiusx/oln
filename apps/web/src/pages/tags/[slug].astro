@@ -1,37 +1,70 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { api } from '../../lib/api';
-import { formatDate } from '../../lib/markdown';
-
-export const prerender = false;
+import Layout from '@/layouts/Layout.astro';
+import { api } from '@/lib/api';
+import { getCollection } from 'astro:content';
 
 const { slug } = Astro.params;
-const config = await api.config();
-const tags = await api.tags();
-const tagName = tags.find((t) => t.slug === slug)?.name || slug;
-const data = await api.posts(1, 50, undefined, slug);
-const posts = data.items;
+if (!slug) return Astro.redirect('/404');
+
+interface Item {
+  slug: string;
+  title: string;
+  date: Date;
+  excerpt?: string | null;
+}
+
+let items: Item[] = [];
+let error = false;
+const tagName = decodeURIComponent(slug);
+
+try {
+  const postResult = await api.posts(1, 50);
+  items = postResult.items
+    .filter((p) =>
+      p.tags.some((t) => t.slug === slug || t.name === tagName),
+    )
+    .filter((p) => p.publishedAt)
+    .map((p) => ({ slug: p.slug, title: p.title, date: new Date(p.publishedAt!), excerpt: p.excerpt }));
+} catch {
+  error = true;
+  const local = await getCollection('posts');
+  items = local
+    .filter((p) => p.data.tags.includes(tagName))
+    .map((p) => ({ slug: p.id.replace(/\.md$/, ''), title: p.data.title, date: p.data.pubDate, excerpt: p.data.description }));
+}
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+}
 ---
 
-<Layout title={tagName} config={config}>
-  <header class="page-head">
-    <h1>标签：{tagName}</h1>
-    <p class="page-sub">共 {posts.length} 篇文章</p>
-  </header>
-  {posts.length === 0 ? (
-    <div class="empty">该标签暂无文章。</div>
-  ) : (
-    <div class="post-list">
-      {posts.map((post) => (
-        <article class="post">
-          <h2 class="post-title"><a href={`/posts/${post.slug}`}>{post.title}</a></h2>
-          <div class="post-meta">
-            <time datetime={post.publishedAt ?? undefined}>{formatDate(post.publishedAt, config.basic.language)}</time>
-            {post.category && <><span class="dot">·</span><a href={`/categories/${post.category.slug}`}>{post.category.name}</a></>}
-          </div>
-          {post.excerpt && <p class="post-excerpt">{post.excerpt}</p>}
-        </article>
-      ))}
-    </div>
-  )}
+<Layout title={`标签：${tagName}`} description={`#${tagName} 标签下的所有文章。`}>
+  <section class="mx-auto max-w-4xl px-6 pt-12 pb-12">
+    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-3 font-serif">
+      <span class="text-accent">#</span> {tagName}
+    </h1>
+    <p class="text-base text-muted-foreground mb-10">共 {items.length} 篇文章。</p>
+
+    {error && <p class="text-muted-foreground mb-4 text-xs">（本地示例文章，服务器未连接）</p>}
+
+    {items.length === 0 ? (
+      <p class="text-muted-foreground">该标签下暂无文章。</p>
+    ) : (
+      <div>
+        {items.map((item) => (
+          <a
+            href={`/posts/${item.slug}`}
+            class="group flex flex-col md:flex-row md:items-baseline gap-0.5 md:gap-5 py-3"
+          >
+            <time class="font-mono text-xs text-muted-foreground md:w-24 md:shrink-0 md:text-sm tabular-nums">
+              {formatDate(item.date)}
+            </time>
+            <span class="text-[15px] font-serif font-medium group-hover:text-accent transition-colors md:min-w-0 truncate">
+              {item.title}
+            </span>
+          </a>
+        ))}
+      </div>
+    )}
+  </section>
 </Layout>

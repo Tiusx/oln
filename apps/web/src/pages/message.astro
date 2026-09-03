@@ -1,57 +1,38 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { api } from '../lib/api';
+import Layout from '@/layouts/Layout.astro';
+import { api } from '@/lib/api';
 
-export const prerender = false;
-
-const config = await api.config();
-const walineServerURL = config.features.comments.walineServerURL || 'https://waline.tius.cn';
+let quote: { content: string; creator: string | null } | null = null;
+try {
+  quote = await api.hitokoto();
+} catch {
+  quote = null;
+}
 ---
 
-<Layout title="留言板" config={config}>
-  <header class="page-head">
-    <h1>留言板</h1>
-    <p class="page-sub">
-      欢迎留下您的足迹
-      · 浏览 <span class="waline-pageview-count" data-path="/message" />次
-      · 评论 <span class="waline-comment-count" data-path="/message" />条
-    </p>
-  </header>
+<Layout title="留言板" description="欢迎在这里留下你的想法。">
+  <section class="mx-auto max-w-4xl px-6 pt-12 pb-12">
+    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-3 font-serif">留言板</h1>
+    <p class="text-base text-muted-foreground mb-10">欢迎在这里留下你的足迹、想法和建议。</p>
 
-  <main class="content">
-    <div class="waline-wrap">
-      <div id="waline"></div>
+    {quote && (
+      <figure class="mb-12 border-l-[3px] border-accent pl-6">
+        <blockquote class="text-lg md:text-xl leading-relaxed text-foreground font-serif">
+          “{quote.content}”
+        </blockquote>
+        {quote.creator && (
+          <figcaption class="mt-3 text-sm text-muted-foreground">
+            —— {quote.creator}
+          </figcaption>
+        )}
+      </figure>
+    )}
+
+    <div class="mb-8">
+      <h2 class="text-base font-bold tracking-tight mb-4 font-serif">留言区</h2>
+      <p class="text-muted-foreground text-sm pt-4 leading-relaxed">
+        留言功能正在接入中。你可以通过文章评论或直接写信与我交流，感谢你的支持与鼓励。
+      </p>
     </div>
-  </main>
+  </section>
 </Layout>
-
-<script>
-  import { init } from '@waline/client';
-  import '@waline/client/style';
-
-  const walineServerURL = import.meta.env.PUBLIC_WALINE_SERVER_URL || 'https://waline.tius.cn';
-
-  function initComments() {
-    if (document.getElementById('waline')) {
-      init({
-        el: '#waline',
-        serverURL: walineServerURL,
-        path: '/message',
-        lang: 'zh-CN',
-        dark: 'html[data-theme="dark"]',
-        pageview: true,
-        comment: true,
-      });
-    }
-  }
-  initComments();
-  document.addEventListener('astro:page-load', initComments);
-</script>
-
-<style>
-.waline-wrap {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
-}
-</style>

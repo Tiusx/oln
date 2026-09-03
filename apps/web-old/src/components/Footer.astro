@@ -1,0 +1,29 @@
+---
+import type { SiteConfig } from '../lib/api';
+
+interface Props {
+  config: SiteConfig;
+}
+
+const { config } = Astro.props;
+const footerText = config.footer.footerText;
+const beian = config.footer.beian;
+const year = new Date().getFullYear();
+const adminUrl = import.meta.env.PUBLIC_ADMIN_URL || '/admin/';
+---
+
+<footer class="site-footer">
+  <div class="inner">
+    <div>
+      {footerText || `© ${year} ${config.basic.siteName || 'Blog'}`}
+    </div>
+    {beian && (
+      <div>
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">{beian}</a>
+      </div>
+    )}
+    <div>
+      <a class="admin-entry" href={adminUrl} rel="noopener" aria-label="后台管理 / 登录">后台管理</a>
+    </div>
+  </div>
+</footer>

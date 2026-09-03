@@ -1,21 +1,50 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { api } from '../lib/api';
+import Layout from '@/layouts/Layout.astro';
+import { api } from '@/lib/api';
 
-export const prerender = false;
-
-const config = await api.config();
+const config = await api.config().catch(() => null);
+const author = config?.author;
+const siteName = config?.basic.siteName || 'Blog';
+const siteBio = config?.basic.bio || '';
 ---
 
-<Layout title="关于" config={config}>
-  <header class="page-head">
-    <h1>关于</h1>
-    <p class="page-sub">分享中性·蓝色的技术博客世界</p>
-  </header>
+<Layout title="关于" description={config?.seo.description} config={config}>
+  <section class="mx-auto max-w-4xl px-6 pt-12 pb-12">
+    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-3 font-serif">关于</h1>
+    <p class="text-base text-muted-foreground mb-10">了解这个博客与博主。</p>
 
-  <main class="content">
-    <div class="about-card">
-      <p>致力于分享有价值的技术内容与生活感悟.</p>
+    {author?.name && (
+      <div class="flex items-center gap-5 mb-8">
+        {author.avatar && (
+          <img src={author.avatar} alt={author.name} class="h-20 w-20 rounded-full object-cover border border-border" />
+        )}
+        <div>
+          <div class="font-serif text-xl font-bold">{author.name}</div>
+          {author.bio && <div class="text-sm text-muted-foreground mt-1">{author.bio}</div>}
+          {author.socials && author.socials.length > 0 && (
+            <div class="flex gap-4 mt-2 text-sm">
+              {author.socials.map((s) => (
+                <a href={s.url} target="_blank" rel="noopener" class="text-foreground hover:underline underline-offset-4">
+                  {s.label}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    <div class="prose max-w-none">
+      <p>这是「{siteName}」的关于页面，记录技术与生活思考。</p>
+      {siteBio && <p>{siteBio}</p>}
+      <h2>技术栈</h2>
+      <ul>
+        <li><strong>Astro</strong> — 服务端渲染 + Cloudflare Pages</li>
+        <li><strong>Tailwind CSS v4</strong> — CSS-first 配置</li>
+        <li><strong>shadcn/ui</strong> — 精心设计的 UI 组件</li>
+      </ul>
+      <h2>联系我</h2>
+      <p>有任何问题或建议，欢迎通过文章评论与我联系。</p>
     </div>
-  </main>
+  </section>
 </Layout>

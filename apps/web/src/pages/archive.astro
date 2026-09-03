@@ -1,217 +1,106 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { api } from '../lib/api';
+import Layout from '@/layouts/Layout.astro';
+import { api } from '@/lib/api';
+import { getCollection } from 'astro:content';
 
-export const prerender = false;
-
-const config = await api.config();
-
-// 懒加载：首次只加载一部分，后续滚动到底部再分页加载。
-const initialLimit = 30;
-const chunkLimit = 50;
-
-async function loadPosts(page: number, limit: number) {
-  const data = await api.posts(page, limit);
-  return {
-    items: data.items,
-    total: data.total,
-    nextPage: data.items.length > 0 ? page + 1 : page,
-    hasMore: data.page * limit < data.total,
-  };
+interface ArchiveItem {
+  slug: string;
+  title: string;
+  date: Date;
 }
 
-const first = await loadPosts(1, initialLimit);
-const posts = first.items;
-const total = first.total;
+let items: ArchiveItem[] = [];
+let error = false;
 
-type ArchiveEntry = { title: string; slug: string; d: Date; pinned: boolean };
-
-// Group by year then by month (YYYY-MM), sorted desc.
-function groupPosts(list: typeof posts): Record<string, Record<string, ArchiveEntry[]>> {
-  const byYear: Record<string, Record<string, ArchiveEntry[]>> = {};
-  for (const p of list) {
-    const d = new Date(p.publishedAt || '');
-    if (isNaN(d.getTime())) continue;
-    const year = d.getFullYear().toString();
-    const monthKey = d.toISOString().slice(0, 7);
-    (byYear[year] = byYear[year] || {})[monthKey] = byYear[year][monthKey] || [];
-    byYear[year][monthKey].push({ title: p.title, slug: p.slug, d, pinned: !!p.pinned });
-  }
-  return byYear;
+try {
+  const first = await api.posts(1, 50);
+  items = first.items
+    .filter((p) => p.publishedAt)
+    .map((p) => ({ slug: p.slug, title: p.title, date: new Date(p.publishedAt!) }));
+} catch {
+  error = true;
+  const local = await getCollection('posts');
+  items = local.map((p) => ({
+    slug: p.id.replace(/\.md$/, ''),
+    title: p.data.title,
+    date: p.data.pubDate,
+  }));
 }
 
-const byYear = groupPosts(posts);
-const years = Object.keys(byYear).sort((a, b) => Number(b) - Number(a));
+items.sort((a, b) => b.date.getTime() - a.date.getTime());
 
-function pad(n: number): string {
-  return n < 10 ? '0' + n : String(n);
+const grouped = new Map<string, Map<string, ArchiveItem[]>>();
+for (const it of items) {
+  const year = `${it.date.getFullYear()}`;
+  const month = `${it.date.getFullYear()}年${it.date.getMonth() + 1}月`;
+  if (!grouped.has(year)) grouped.set(year, new Map());
+  const byMonth = grouped.get(year)!;
+  if (!byMonth.has(month)) byMonth.set(month, []);
+  byMonth.get(month)!.push(it);
 }
-function fullDate(d: Date): string {
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+
+const years = [...grouped.keys()].sort((a, b) => Number(b) - Number(a));
+
+function day(date: Date): string {
+  const mo = date.getMonth() + 1;
+  const d = date.getDate();
+  return `${mo}月${d}日`;
 }
-function monthLabel(key: string, lang: string): string {
-  const d = new Date(key + '-01T00:00:00');
-  if ((lang || '').toLowerCase().startsWith('en')) {
-    return d.toLocaleDateString('en-US', { month: 'long' });
-  }
-  return `${d.getMonth() + 1} 月`;
-}
-const lang = config.basic.language;
 ---
 
-<Layout title="归档" config={config}>
-  <header class="page-head">
-    <h1>归档</h1>
-    <p class="page-sub" data-archive-total>共 <span data-archive-total-num>{total}</span> 篇文章</p>
-  </header>
+<Layout title="归档" description="按时间归档所有文章。">
+  <section class="mx-auto max-w-4xl px-6 pt-12 pb-12">
+    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-3 font-serif">归档</h1>
+    <p class="text-base text-muted-foreground mb-10">共 {items.length} 篇文章，按时间排列。</p>
 
-  <div class="timeline" id="archive-timeline" data-total={total} data-page="1" data-limit={String(chunkLimit)}>
-    {years.length === 0 ? (
-      <div class="empty" data-archive-empty>暂无文章。</div>
+    {error && <p class="text-muted-foreground mb-4 text-xs">（本地示例文章，服务器未连接）</p>}
+
+    {items.length === 0 ? (
+      <p class="text-muted-foreground">暂无文章。</p>
     ) : (
-      years.map((year) => {
-        const months = Object.keys(byYear[year]).sort((a, b) => b.localeCompare(a));
-        return (
-          <section class="tl-group" data-year={year}>
-            <h2 class="tl-year">{year}</h2>
-            <div class="tl-list">
-              {months.map((monthKey) => {
-                const items = byYear[year][monthKey].sort((a, b) => b.d.getTime() - a.d.getTime());
-                return (
-                  <div class="tl-month" data-month={monthKey}>
-                    <span class="tl-month-label">{monthLabel(monthKey, lang)}</span>
-                    {items.map((p) => (
-                      <div class="tl-item">
-                        <span class="tl-dot" aria-hidden="true"></span>
-                        <time class="tl-date" datetime={p.d.toISOString()}>{fullDate(p.d)}</time>
-                        <a class="tl-title" href={`/posts/${p.slug}`}>
-                          {p.pinned && <span class="min-pin">置顶</span>}
-                          <span class="tl-title-text">{p.title}</span>
+      <div class="relative pl-8 border-l border-border ml-1.5">
+        {years.map((year) => {
+          const byMonth = grouped.get(year)!;
+          return (
+            <div class="relative mb-12">
+              {/* Year dot on the timeline */}
+              <span class="absolute -left-[37px] top-1.5 h-3 w-3 rounded-full bg-foreground" />
+              <h2 class="text-xl font-bold tracking-tight font-serif mb-1">
+                {year}
+                <span class="ml-3 text-sm font-normal font-sans text-muted-foreground">
+                  {[...byMonth.values()].reduce((n, arr) => n + arr.length, 0)} 篇
+                </span>
+              </h2>
+              <div class="mt-4">
+                {[...byMonth.entries()].map(([month, arr]) => (
+                  <div class="mb-2">
+                    <h3 class="text-sm text-muted-foreground mb-2 tracking-wide">
+                      {month}
+                    </h3>
+                    <div>
+                      {arr.map((item) => (
+                        <a
+                          href={`/posts/${item.slug}`}
+                          class="group relative flex flex-col md:flex-row md:items-baseline gap-0.5 md:gap-4 py-2"
+                        >
+                          {/* Dot on the timeline for each post */}
+                          <span class="absolute -left-[31px] top-[0.85rem] h-1.5 w-1.5 rounded-full bg-border group-hover:bg-foreground transition-colors" />
+                          <span class="font-mono text-xs text-muted-foreground md:w-12 md:shrink-0 md:text-right md:text-sm tabular-nums tracking-wide">
+                            {day(item.date)}
+                          </span>
+                          <span class="text-[15px] md:min-w-0 truncate group-hover:underline underline-offset-4 transition-colors">
+                            {item.title}
+                          </span>
                         </a>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </section>
-        );
-      })
+          );
+        })}
+      </div>
     )}
-  </div>
-
-  <div id="archive-sentinel" class="archive-sentinel"></div>
+  </section>
 </Layout>
-
-<script>
-  const timeline = document.getElementById('archive-timeline');
-  const sentinel = document.getElementById('archive-sentinel');
-  const totalNum = document.getElementById('archive-total-num');
-  const lang = document.documentElement.lang || 'zh-CN';
-
-  function pad(n: number) { return n < 10 ? '0' + n : String(n); }
-  function fullDate(d: Date) { return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`; }
-  function monthLabel(key: string) {
-    const d = new Date(key + '-01T00:00:00');
-    if (lang.startsWith('en')) return d.toLocaleDateString('en-US', { month: 'long' });
-    return `${d.getMonth() + 1} 月`;
-  }
-  const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
-
-  function itemHtml(p: any) {
-    const d = new Date(p.publishedAt || '');
-    if (isNaN(d.getTime())) return '';
-    const pin = p.pinned ? '<span class="min-pin">置顶</span>' : '';
-    return `<div class="tl-item">
-      <span class="tl-dot" aria-hidden="true"></span>
-      <time class="tl-date" datetime="${p.publishedAt}">${fullDate(d)}</time>
-      <a class="tl-title" href="/posts/${esc(p.slug)}">${pin}<span class="tl-title-text">${esc(p.title)}</span></a>
-    </div>`;
-  }
-  function monthHtml(monthKey: string, items: any[]) {
-    return `<div class="tl-month" data-month="${monthKey}">
-      <span class="tl-month-label">${monthLabel(monthKey)}</span>${items.map(itemHtml).join('')}
-    </div>`;
-  }
-  function yearHtml(year: string, monthsByKey: Record<string, any[]>) {
-    const months = Object.keys(monthsByKey).sort((a, b) => b.localeCompare(a));
-    return `<section class="tl-group" data-year="${year}">
-      <h2 class="tl-year">${year}</h2>
-      <div class="tl-list">${months.map((m) => monthHtml(m, monthsByKey[m])).join('')}</div>
-    </section>`;
-  }
-  function groupItems(list: any[]): Record<string, Record<string, any[]>> {
-    const byYear: Record<string, Record<string, any[]>> = {};
-    for (const p of list) {
-      const d = new Date(p.publishedAt || '');
-      if (isNaN(d.getTime())) continue;
-      const year = d.getFullYear().toString();
-      const m = d.toISOString().slice(0, 7);
-      (byYear[year] = byYear[year] || {})[m] = byYear[year][m] || [];
-      byYear[year][m].push(p);
-    }
-    return byYear;
-  }
-
-  let page = Number(timeline.dataset.page || 1);
-  const limit = Number(timeline.dataset.limit || 50);
-  let total = Number(timeline.dataset.total || 0);
-  let loading = false;
-  let done = total <= 0;
-
-  async function loadMore() {
-    if (loading || done) return;
-    loading = true;
-    sentinel && (sentinel.innerHTML = '<span class="archive-loading">加载中…</span>');
-    const next = page + 1;
-    try {
-      const res = await fetch(`/api/public/posts?page=${next}&limit=${limit}`);
-      const json = await res.json();
-      const items = json?.data?.items || [];
-      const newTotal = json?.data?.total ?? total;
-      timeline.dataset.total = String(newTotal);
-      if (totalNum) totalNum.textContent = String(newTotal);
-      total = newTotal;
-
-      if (items.length > 0) {
-        const byYear = groupItems(items);
-        const yearKeys = Object.keys(byYear).sort((a, b) => Number(b) - Number(a));
-        for (const year of yearKeys) {
-          let section = timeline.querySelector<HTMLElement>(`.tl-group[data-year="${year}"]`);
-          if (section) {
-            const tlList = section.querySelector('.tl-list')!;
-            const months = Object.keys(byYear[year]).sort((a, b) => b.localeCompare(a));
-            for (const m of months) {
-              const existingMonth = tlList.querySelector<HTMLElement>(`.tl-month[data-month="${m}"]`);
-              if (existingMonth) {
-                existingMonth.insertAdjacentHTML('beforeend', byYear[year][m].map(itemHtml).join(''));
-              } else {
-                tlList.insertAdjacentHTML('beforeend', monthHtml(m, byYear[year][m]));
-              }
-            }
-          } else {
-            timeline.insertAdjacentHTML('beforeend', yearHtml(year, byYear[year]));
-          }
-        }
-        page = next;
-        done = next * limit >= total;
-      } else {
-        done = true;
-      }
-    } catch (e) {
-      done = true;
-    } finally {
-      loading = false;
-      if (sentinel) {
-        sentinel.innerHTML = done ? '<span class="archive-end">没有更多了</span>' : '';
-      }
-    }
-  }
-
-  if (timeline && 'IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) loadMore();
-    }, { rootMargin: '300px' });
-    io.observe(sentinel);
-  }
-</script>

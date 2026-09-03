@@ -1,25 +1,74 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { api } from '../../lib/api';
+import Layout from '@/layouts/Layout.astro';
+import { api } from '@/lib/api';
+import { getCollection } from 'astro:content';
 
-export const prerender = false;
+interface TagWithCount {
+  name: string;
+  slug: string;
+  count: number;
+}
 
-const config = await api.config();
-const tags = await api.tags();
+let tags: TagWithCount[] = [];
+let error = false;
+
+try {
+  const [tagRows, postResult] = await Promise.all([
+    api.tags(),
+    api.posts(1, 50),
+  ]);
+  const countMap = new Map<string, number>();
+  for (const p of postResult.items) {
+    for (const t of p.tags) {
+      countMap.set(t.slug, (countMap.get(t.slug) || 0) + 1);
+    }
+  }
+  tags = tagRows.map((t) => ({ name: t.name, slug: t.slug, count: countMap.get(t.slug) || 0 }));
+} catch {
+  error = true;
+  const local = await getCollection('posts');
+  const countMap = new Map<string, number>();
+  for (const p of local) {
+    for (const t of p.data.tags) {
+      countMap.set(t, (countMap.get(t) || 0) + 1);
+    }
+  }
+  tags = [...countMap.entries()].map(([name, count]) => ({ name, slug: name, count }));
+}
+
+tags.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-CN'));
+const maxCount = Math.max(1, ...tags.map((t) => t.count));
+
+function fontSize(count: number): string {
+  const ratio = count / maxCount;
+  if (ratio >= 0.8) return 'text-2xl font-bold';
+  if (ratio >= 0.5) return 'text-xl font-semibold';
+  if (ratio >= 0.25) return 'text-lg font-medium';
+  return 'text-base';
+}
 ---
 
-<Layout title="标签" config={config}>
-  <header class="page-head">
-    <h1>标签</h1>
-    {tags.length > 0 && <p class="page-sub">共 {tags.length} 个标签</p>}
-  </header>
-  {tags.length === 0 ? (
-    <div class="empty">暂无标签。</div>
-  ) : (
-    <div class="tags-cloud">
-      {tags.map((t) => (
-        <a class="tag-chip" href={`/tags/${t.slug}`}>{t.name}</a>
-      ))}
-    </div>
-  )}
+<Layout title="标签" description="按标签浏览所有文章。">
+  <section class="mx-auto max-w-4xl px-6 pt-12 pb-12">
+    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-3 font-serif">标签</h1>
+    <p class="text-base text-muted-foreground mb-10">共 {tags.length} 个标签。</p>
+
+    {error && <p class="text-muted-foreground mb-4 text-xs">（本地示例文章，服务器未连接）</p>}
+
+    {tags.length === 0 ? (
+      <p class="text-muted-foreground">暂无标签。</p>
+    ) : (
+      <div class="flex flex-wrap gap-x-7 gap-y-4 items-baseline">
+        {tags.map((tag) => (
+          <a
+            href={`/tags/${encodeURIComponent(tag.slug)}`}
+            class={`inline-flex items-baseline gap-1.5 font-serif hover:text-accent transition-colors ${fontSize(tag.count)}`}
+          >
+            <span>{tag.name}</span>
+            <span class="text-xs text-muted-foreground font-mono">{tag.count}</span>
+          </a>
+        ))}
+      </div>
+    )}
+  </section>
 </Layout>

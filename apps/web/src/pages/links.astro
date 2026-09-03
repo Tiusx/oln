@@ -1,63 +1,99 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { api } from '../lib/api';
+import Layout from '@/layouts/Layout.astro';
+import { api } from '@/lib/api';
+import { getCollection } from 'astro:content';
 
-export const prerender = false;
+const config = await api.config().catch(() => null);
 
-const config = await api.config();
-const links = await api.links();
+interface LinkItem {
+  id: string;
+  name: string;
+  url: string;
+  description: string | null;
+  avatar: string | null;
+}
+
+let links: LinkItem[] = [];
+let error = false;
+try {
+  links = await api.links();
+} catch {
+  error = true;
+  links = (await getCollection('posts'))
+    .slice(0, 0)
+    .map(() => ({ id: '', name: '', url: '', description: null, avatar: null }));
+}
+
+function initial(name: string): string {
+  return (name || '?').trim().charAt(0);
+}
 ---
 
-<Layout title="友链" description="我的好友交换链接" config={config}>
-  <header class="page-head">
-    <h1>友链</h1>
-    {links.length > 0 && <p class="page-sub">已收录 {links.length} 位好友</p>}
-  </header>
+<Layout title="友链" description={config?.seo.description} config={config}>
+  <section class="mx-auto max-w-4xl px-6 pt-12 pb-12">
+    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-3 font-serif">友链</h1>
+    <p class="text-base text-muted-foreground mb-10">共收录 {links.length} 位好友。</p>
 
-  <main class="content">
+    {error && <p class="text-muted-foreground mb-4 text-xs">（暂无后端友链数据）</p>}
+
     {links.length === 0 ? (
-      <div class="empty">暂无友链。</div>
+      <p class="text-muted-foreground">暂无友链。</p>
     ) : (
-      <section class="links-grid">
-        {links.map((l) => (
-          <a class="link-card" href={l.url} target="_blank" rel="noopener">
-            {l.avatar ? (
-              <img class="link-avatar" src={l.avatar} alt="" loading="lazy" />
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {links.map((link) => (
+          <a
+            href={link.url}
+            target="_blank"
+            rel="noopener"
+            class="group flex items-start gap-4 border border-border rounded-lg p-5 hover:border-foreground transition-colors"
+          >
+            {link.avatar ? (
+              <img src={link.avatar} alt={link.name} class="h-12 w-12 rounded-full object-cover border border-border" />
             ) : (
-              <span class="link-avatar link-avatar-fallback">{l.name?.charAt(0) || '?'}</span>
+              <span class="h-12 w-12 rounded-full bg-muted flex items-center justify-center font-serif text-lg text-muted-foreground">
+                {initial(link.name)}
+              </span>
             )}
-            <span class="link-body">
-              <span class="link-name">{l.name}</span>
-              {l.description && <span class="link-desc">{l.description}</span>}
-            </span>
+            <div class="min-w-0">
+              <div class="font-serif font-bold text-[15px] group-hover:underline underline-offset-4">
+                {link.name}
+              </div>
+              <div class="text-xs text-muted-foreground truncate mt-0.5">{link.url}</div>
+              {link.description && (
+                <p class="text-sm text-muted-foreground mt-1.5 leading-relaxed">{link.description}</p>
+              )}
+            </div>
           </a>
         ))}
-      </section>
+      </div>
     )}
 
-    <section class="apply-section">
-      <div class="apply-head">
-        <h2>申请友链</h2>
-        <p>欢迎交换友链，请在下方评论区留言提交：<strong>站点名称</strong> + <strong>链接</strong> + <strong>一句简介</strong>，我会尽快审核并收录。</p>
-      </div>
-      <div class="waline-wrap">
-        <div id="waline"></div>
-      </div>
+    <section class="mt-16 border-t border-border pt-10">
+      <h2 class="text-lg font-bold font-serif mb-3">申请友链</h2>
+      <p class="text-sm text-muted-foreground leading-relaxed mb-6">
+        欢迎交换友链，请在下方评论区留言提交：<strong class="text-foreground">站点名称</strong> +
+        <strong class="text-foreground">链接</strong> + <strong class="text-foreground">一句简介</strong>，
+        我会尽快审核并收录。
+      </p>
+      <div id="waline"></div>
     </section>
-  </main>
+  </section>
 </Layout>
 
 <script>
   import { init } from '@waline/client';
   import '@waline/client/style';
 
-  const walineServerURL = import.meta.env.PUBLIC_WALINE_SERVER_URL || 'https://waline.tius.cn';
+  const serverURL =
+    import.meta.env.PUBLIC_WALINE_SERVER_URL ||
+    'https://waline.tius.cn';
 
   function initComments() {
-    if (document.getElementById('waline')) {
+    const el = document.getElementById('waline');
+    if (el) {
       init({
         el: '#waline',
-        serverURL: walineServerURL,
+        serverURL,
         path: '/links',
         lang: 'zh-CN',
         dark: 'html[data-theme="dark"]',
@@ -69,85 +105,3 @@ const links = await api.links();
   initComments();
   document.addEventListener('astro:page-load', initComments);
 </script>
-
-<style>
-  .links-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 12px;
-  }
-  .link-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--bg-elevated);
-    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
-    text-decoration: none !important;
-  }
-  .link-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
-  }
-  .link-avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-  }
-  .link-avatar-fallback {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--accent);
-    color: #fff;
-    font-weight: 700;
-    font-size: 15px;
-  }
-  .link-body {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .link-name {
-    font-weight: 700;
-    font-size: 14px;
-    color: var(--fg);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .link-card:hover .link-name { color: var(--accent); }
-  .link-desc {
-    color: var(--fg-muted);
-    font-size: 12px;
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .apply-section {
-    margin-top: 48px;
-    padding-top: 40px;
-    border-top: 1px solid var(--border);
-  }
-  .apply-head h2 {
-    font-size: 20px;
-    margin: 0 0 8px;
-    letter-spacing: -0.01em;
-  }
-  .apply-head p {
-    color: var(--fg-muted);
-    font-size: 14px;
-    margin: 0 0 20px;
-  }
-  .waline-wrap {
-    max-width: 720px;
-    margin: 0 auto;
-  }
-</style>

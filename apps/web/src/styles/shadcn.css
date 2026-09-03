@@ -1,0 +1,73 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@source "../pages/**/*.astro";
+@source "../components/**/*.{tsx,astro}";
+@source "../layouts/**/*.astro";
+@source "../lib/**/*.ts";
+
+/*
+ * varzy.me-inspired "paper & ink" two-tone palette.
+ * Primary is a light paper (white bg, ink black text, secondary gray),
+ * and automatically flips to a dark paper via prefers-color-scheme.
+ * The `.dark *` variant (added via a toggle) reuses the same dark tokens.
+ */
+:root {
+  --paper: #ffffff;
+  --ink: #131313;
+  --secondary: #8b8b8b;
+  --muted: #f6f5f2;
+  --border: #eae9e5;
+  --input: #dcdad4;
+}
+
+.dark {
+  --paper: #121212;
+  --ink: #e7e7e4;
+  --secondary: #9a9a97;
+  --muted: #1e1e1e;
+  --border: #2a2a2a;
+  --input: #3a3a3a;
+}
+
+/* Auto dark via system preference */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --paper: #121212;
+    --ink: #e7e7e4;
+    --secondary: #9a9a97;
+    --muted: #1e1e1e;
+    --border: #2a2a2a;
+    --input: #3a3a3a;
+  }
+}
+
+@theme inline {
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--secondary);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  /* Two-tone "ink" accent: same as foreground (varzy keeps only ink + secondary) */
+  --color-accent: var(--ink);
+  --color-accent-foreground: var(--paper);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--paper);
+  --color-secondary: var(--muted);
+  --color-secondary-foreground: var(--ink);
+  --color-destructive: var(--ink);
+  --color-ring: var(--ink);
+  --radius-sm: 2px;
+  --radius: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --font-sans: 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', -apple-system,
+    'Segoe UI', 'Helvetica Neue', Roboto, 'Noto Sans SC', system-ui,
+    'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono',
+    Menlo, Consolas, monospace;
+}

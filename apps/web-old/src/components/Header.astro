@@ -1,0 +1,75 @@
+---
+import { Rss } from 'lucide-react';
+import type { SiteConfig } from '../lib/api';
+import { ThemeToggle } from './ThemeToggle';
+import { MobileNav } from './MobileNav';
+import { Button } from './ui/button';
+
+interface Props {
+  config: SiteConfig;
+  currentPath?: string;
+}
+
+const { config, currentPath = '' } = Astro.props;
+const siteName = config.basic.siteName || 'Blog';
+const menu = config.nav.menu || [];
+const allowToggle = config.theme?.allowToggle !== false;
+
+const builtin = Array.isArray(config.nav?.builtin?.links)
+  ? config.nav.builtin.links
+  : [];
+const showBuiltin = config.nav?.builtin?.show !== false;
+const extraMenu = showBuiltin ? builtin.filter((l) => l.enabled) : [];
+
+const isCurrent = (url: string) => {
+  if (url === '/') return currentPath === '/' || currentPath === '';
+  return currentPath.startsWith(url);
+};
+
+const navLinks = [
+  { url: '/', label: '首页' },
+  ...menu.map((item) => ({ url: item.url, label: item.label, target: item.newWindow ? '_blank' : undefined, rel: item.newWindow ? 'noopener' : undefined })),
+  ...extraMenu.map((item) => ({ url: item.url, label: item.label, target: item.newWindow ? '_blank' : undefined, rel: item.newWindow ? 'noopener' : undefined })),
+];
+---
+
+<header class="site-header">
+  <div class="inner">
+    <a class="site-title" href="/">
+      {config.basic.logo ? (
+        <img class="site-logo" src={config.basic.logo} alt={siteName} />
+      ) : (
+        siteName
+      )}
+    </a>
+
+    <nav class="site-nav site-nav-desktop">
+      {navLinks.map((item) => (
+        <a
+          href={item.url}
+          target={item.target}
+          rel={item.rel}
+          aria-current={isCurrent(item.url) ? 'true' : undefined}
+          class={isCurrent(item.url) ? 'nav-link is-current' : 'nav-link'}
+        >
+          {item.label}
+        </a>
+      ))}
+      {allowToggle && (
+        <ThemeToggle client:idle />
+      )}
+      <Button variant="ghost" size="icon" className="nav-icon-btn" asChild>
+        <a href="/rss.xml" title="RSS 订阅" aria-label="RSS 订阅">
+          <Rss className="h-4 w-4" />
+        </a>
+      </Button>
+    </nav>
+
+    <MobileNav
+      client:visible
+      brand={siteName}
+      links={navLinks}
+      currentPath={currentPath}
+    />
+  </div>
+</header>

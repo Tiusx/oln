@@ -6,9 +6,11 @@
   "type": "module",
   "scripts": {
     "dev:web": "npm --prefix apps/web run dev",
+    "dev:web-old": "npm --prefix apps/web-old run dev",
     "dev:server": "npm --prefix apps/server run dev",
     "dev:admin": "npm --prefix apps/admin run dev",
     "build:web": "npm --prefix apps/web run build",
+    "build:web-old": "npm --prefix apps/web-old run build",
     "build:admin": "npm --prefix apps/admin run build",
     "typecheck:server": "npm --prefix apps/server run typecheck",
     "typecheck:admin": "npm --prefix apps/admin run typecheck",

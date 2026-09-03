@@ -1,0 +1,20 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { api } from '../lib/api';
+import { Hitokoto } from '../components/Hitokoto';
+
+export const prerender = false;
+
+const config = await api.config();
+---
+
+<Layout title="一言" config={config}>
+  <header class="page-head">
+    <h1>一言</h1>
+    <p class="page-sub">随机一句语录</p>
+  </header>
+
+  <main class="content">
+    <Hitokoto client:visible />
+  </main>
+</Layout>

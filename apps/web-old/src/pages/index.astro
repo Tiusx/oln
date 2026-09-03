@@ -1,0 +1,71 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { api } from '../lib/api';
+import { renderMarkdown, formatDateShort } from '../lib/markdown';
+import { HeroSection } from '../components/HeroSection';
+import { FeedList } from '../components/FeedList';
+import { Sidebar } from '../components/Sidebar';
+
+export const prerender = false;
+
+const config = await api.config();
+const homeLatestCount = config.basic.homeLatestCount ?? 5;
+const [postsData, tags, categories] = await Promise.all([
+  api.posts(1, homeLatestCount),
+  api.tags(),
+  api.categories(),
+]);
+const posts = postsData.items;
+
+const bioRaw = config.basic.bio || '';
+const bioHtml = bioRaw ? renderMarkdown(bioRaw) : '';
+const hasSidebar = tags.length > 0 || categories.length > 0 || (!!config.author.name);
+---
+
+<Layout description={config.seo.description} config={config} wide>
+  <div class="home-grid">
+    <div class="min-w-0">
+      <HeroSection
+        siteName={config.basic.siteName}
+        tagline={config.basic.tagline}
+        bioHtml={bioHtml}
+        avatar={config.basic.logo || undefined}
+        authorName={config.author.name}
+        stats={{ posts: postsData.total, tags: tags.length, categories: categories.length }}
+      />
+
+      <div class="mt-12">
+        <FeedList
+          title="最新文章"
+          moreHref="/posts"
+          items={posts.map((post) => ({
+            slug: post.slug,
+            title: post.title,
+            excerpt: post.excerpt,
+            date: formatDateShort(post.publishedAt, config.basic.language),
+            category: post.category,
+            tags: post.tags,
+            pinned: post.pinned,
+          }))}
+        />
+      </div>
+    </div>
+
+    {hasSidebar && (
+      <Sidebar
+        siteName={config.basic.siteName}
+        author={
+          config.author.name
+            ? {
+                name: config.author.name,
+                avatar: config.author.avatar || undefined,
+                bio: config.author.bio || undefined,
+              }
+            : undefined
+        }
+        tags={tags}
+        categories={categories}
+      />
+    )}
+  </div>
+</Layout>
