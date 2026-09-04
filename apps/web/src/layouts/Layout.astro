@@ -2,6 +2,7 @@
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
 import BackToTop from '@/components/BackToTop';
+import { ClientRouter } from 'astro:transitions';
 import { api, type SiteConfig } from '@/lib/api';
 import '@/styles/global.css';
 
@@ -36,6 +37,7 @@ const allowToggle = configData?.theme.allowToggle !== false;
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="Astro" />
+    <ClientRouter />
 
     <script is:inline define:vars={{ preferred: themePreferred }}>
       (function () {
@@ -93,5 +95,89 @@ const allowToggle = configData?.theme.allowToggle !== false;
     <Footer config={configData} />
     <BackToTop client:visible />
     {configData?.inject.footHtml && <Fragment set:html={configData.inject.footHtml} />}
+    <script>
+      // Code block enhancer: add a language label + copy button to every
+      // `<pre>` inside `.prose` markdown output. Runs on each page load and
+      // on View-Transition navigations (guarded to stay idempotent).
+      const COPY_ICON =
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      const CHECK_ICON =
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+      function copyText(text, btn, label) {
+const done = () => {
+          btn.classList.add('copied');
+          btn.setAttribute('aria-label', 'Copied');
+          btn.innerHTML = `${CHECK_ICON}<span class="code-block__copy-label">Copied</span>`;
+          setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.setAttribute('aria-label', 'Copy code');
+            btn.innerHTML = `${COPY_ICON}<span class="code-block__copy-label">Copy</span>`;
+          }, 2000);
+        };
+        const fallback = () => {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); } catch {}
+          document.body.removeChild(ta);
+          done();
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(done).catch(fallback);
+        } else {
+          fallback();
+        }
+      }
+
+      function enhanceCodeBlocks() {
+        const blocks = document.querySelectorAll('.prose pre');
+        for (const pre of blocks) {
+          if (pre.dataset.codeBlock === '1') continue;
+          const code = pre.querySelector('code');
+          if (!code) continue;
+          pre.dataset.codeBlock = '1';
+
+          const wrap = document.createElement('div');
+          wrap.className = 'code-block';
+
+          const bar = document.createElement('div');
+          bar.className = 'code-block__bar';
+
+          const m = (code.className || '').match(/language-([\w+-]+)/);
+          const langName = m ? m[1] : (pre.dataset.language || code.dataset.language || '');
+          if (langName) {
+            const lang = document.createElement('span');
+            lang.className = 'code-block__lang';
+            lang.textContent = langName;
+            bar.appendChild(lang);
+          } else {
+            bar.appendChild(document.createElement('span'));
+          }
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'code-block__copy';
+          btn.setAttribute('aria-label', 'Copy code');
+          btn.innerHTML = `${COPY_ICON}<span class="code-block__copy-label">Copy</span>`;
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            copyText(code.innerText, btn, 'Copy');
+          });
+          bar.appendChild(btn);
+
+          pre.parentNode.insertBefore(wrap, pre);
+          wrap.appendChild(bar);
+          wrap.appendChild(pre);
+        }
+      }
+
+      enhanceCodeBlocks();
+      document.addEventListener('astro:page-load', enhanceCodeBlocks);
+    </script>
   </body>
 </html>

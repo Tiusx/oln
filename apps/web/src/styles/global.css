@@ -122,6 +122,138 @@
   font-size: 0.875rem;
 }
 
+/* Code block: language label + copy button
+   (wrapper injected client-side by the code-block enhancer) */
+.code-block {
+  margin: 1.4rem 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.code-block > pre {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+.code-block__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  background: color-mix(in srgb, var(--color-muted) 92%, transparent);
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-muted-foreground);
+  user-select: none;
+}
+.code-block__lang {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.code-block__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font: inherit;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.code-block__copy:hover {
+  color: var(--color-foreground);
+  background: var(--color-background);
+  border-color: var(--color-foreground);
+}
+.code-block__copy.copied {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .code-block__copy { transition: none; }
+}
+
+/* Syntax highlighting (highlight.js → `.hljs-*` spans).
+   Subtle "paper & ink" palette with quiet warm accents for legibility. */
+.prose .hljs {
+  color: var(--color-foreground);
+  background: transparent;
+}
+.prose .hljs-comment,
+.prose .hljs-quote {
+  color: var(--color-muted-foreground);
+  font-style: italic;
+}
+.prose .hljs-keyword,
+.prose .hljs-selector-tag,
+.prose .hljs-literal,
+.prose .hljs-doctag,
+.prose .hljs-meta .hljs-keyword,
+.prose .hljs-template-tag {
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+.prose .hljs-string,
+.prose .hljs-regexp,
+.prose .hljs-symbol,
+.prose .hljs-meta,
+.prose .hljs-bullet,
+.prose .hljs-number,
+.prose .hljs-template-variable,
+.prose .hljs-variable.language_ {
+  color: var(--hljs-accent, var(--color-foreground));
+}
+.prose .hljs-title,
+.prose .hljs-title.function_,
+.prose .hljs-title.class_,
+.prose .hljs-title.class_.inherited__,
+.prose .hljs-function .hljs-title,
+.prose .hljs-property,
+.prose .hljs-built_in,
+.prose .hljs-type,
+.prose .hljs-subst {
+  color: var(--hljs-func, var(--color-muted-foreground));
+}
+.prose .hljs-tag,
+.prose .hljs-name,
+.prose .hljs-attribute,
+.prose .hljs-selector-class,
+.prose .hljs-selector-id,
+.prose .hljs-class .hljs-title,
+.prose .hljs-variable {
+  color: var(--color-muted-foreground);
+}
+.prose .hljs-attr {
+  color: var(--hljs-accent, var(--color-foreground));
+}
+.prose .hljs-params {
+  color: var(--color-foreground);
+}
+.prose .hljs-emphasis {
+  font-style: italic;
+}
+.prose .hljs-strong {
+  font-weight: 700;
+}
+.prose .hljs-addition {
+  color: var(--color-foreground);
+}
+.prose .hljs-deletion {
+  color: var(--color-destructive);
+}
+.prose .hljs-link,
+.prose .hljs-title .hljs-string {
+  color: var(--hljs-accent, var(--color-accent));
+  text-decoration: underline;
+}
+
 .prose :where(blockquote):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   border-left: 3px solid var(--color-foreground);
   padding-left: 1.25rem;
@@ -136,6 +268,20 @@
 
 .prose :where(ul):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   list-style-type: disc;
+}
+
+/* GFM task lists: hide the bullet marker and align the checkbox */
+.prose :where(ul):not(:where([class~="not-prose"], [class~="not-prose"] *)) li:has(> input[type="checkbox"]) {
+  list-style-type: none;
+  margin-left: -1.4rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.prose :where(ul):not(:where([class~="not-prose"], [class~="not-prose"] *)) li input[type="checkbox"] {
+  margin-top: 0.45em;
+  accent-color: var(--color-foreground);
+  flex-shrink: 0;
 }
 
 .prose :where(ol):not(:where([class~="not-prose"], [class~="not-prose"] *)) {

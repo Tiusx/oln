@@ -1,10 +1,17 @@
+import { Marked, Renderer } from 'marked';
+import { markedHighlight } from 'marked-highlight';
+import hljs from 'highlight.js';
+
 /**
- * Minimal, dependency-free Markdown -> HTML renderer for Cloudflare Workers.
- * Supports: headings, paragraphs, bold, italic, inline code, code blocks,
- * links, images, ordered/unordered lists, blockquotes, hr, tables (basic).
+ * Markdown -> HTML renderer built on `marked` + `highlight.js`.
+ * Supports GFM: tables, task lists, strikethrough, autolinks, fenced code,
+ * headings, blockquotes, ordered/unordered/nested lists, images, links,
+ * hr, inline code, escaped markup, setext headings, hard breaks.
+ * Fenced code blocks are syntax-highlighted with highlight.js (`hljs-*` spans).
  *
- * NOTE: For production robustness you may swap this for `marked` + `dompurify`.
- * This keeps the worker dependency-free and fast.
+ * Security: raw HTML in the source is escaped (not passed through), keeping
+ * the rendered output free of arbitrary HTML/script injection. Output is
+ * rendered with `set:html` on the frontend, so this matters.
  */
 
 function escapeHtml(s: string): string {
@@ -13,22 +20,6 @@ function escapeHtml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-function renderInline(text: string): string {
-  return text
-    .replace(/\*\*\*([^*\n]+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/~~~([^~\n]+?)~~~|\*\*([^*\n]+?)\*\*/g, '<strong>$1$2</strong>')
-    .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
-    .replace(/~~([^~\n]+?)~~/g, '<del>$1</del>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, '<img src="$2" alt="$1" title="$3" />')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, '<a href="$2" title="$3">$1</a>');
-}
-
-function renderFence(lang: string, code: string): string {
-  const cls = lang ? ` class="language-${escapeHtml(lang)}"` : '';
-  return `<pre><code${cls}>${escapeHtml(code.trim())}</code></pre>`;
 }
 
 function slugifyHeading(s: string): string {
@@ -41,114 +32,55 @@ function slugifyHeading(s: string): string {
     .replace(/^-|-$/g, '');
 }
 
+const renderer = new Renderer();
+
+// Preserve old safe posture: never pass raw HTML through.
+renderer.html = ({ text }: { text: string }) => escapeHtml(text);
+
+const mdInstance = new Marked(
+  markedHighlight({
+    emptyLangClass: 'hljs',
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+      try {
+        return hljs.highlight(code, { language }).value;
+      } catch {
+        return escapeHtml(code);
+      }
+    },
+  }),
+);
+
+mdInstance.use({ renderer });
+
+// Strip markup from heading inner HTML to build a stable anchor id.
+function headingId(innerHtml: string): string {
+  const text = innerHtml
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'");
+  return `heading-${slugifyHeading(text)}`;
+}
+
+function addHeadingIds(html: string): string {
+  return html.replace(
+    /<h([1-6])([^>]*)>(.*?)<\/h\1>/g,
+    (m, level: string, attrs: string, inner: string) => {
+      if (/id=/.test(attrs)) return m;
+      return `<h${level}${attrs} id="${headingId(inner)}">${inner}</h${level}>`;
+    },
+  );
+}
+
 /**
  * Convert markdown text to an HTML string.
  */
 export function renderMarkdown(md: string): string {
-  const lines = md.replace(/\r\n/g, '\n').split('\n');
-  const html: string[] = [];
-  let i = 0;
-  let inList: 'ul' | 'ol' | null = null;
-
-  const closeList = () => {
-    if (inList) {
-      html.push(`</${inList}>`);
-      inList = null;
-    }
-  };
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // fenced code block
-    const fence = line.match(/^```(\w*)\s*$/);
-    if (fence) {
-      closeList();
-      const lang = fence[1];
-      const code: string[] = [];
-      i++;
-      while (i < lines.length && !/^```\s*$/.test(lines[i])) {
-        code.push(lines[i]);
-        i++;
-      }
-      html.push(renderFence(lang, code.join('\n')));
-      i++;
-      continue;
-    }
-
-    // headings
-    const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if (h) {
-      closeList();
-      const level = h[1].length;
-      const anchorId = `heading-${slugifyHeading(h[2])}`;
-      html.push(`<h${level} id="${anchorId}">${renderInline(h[2])}</h${level}>`);
-      i++;
-      continue;
-    }
-
-    // hr
-    if (/^\s*---+\s*$/.test(line)) {
-      closeList();
-      html.push('<hr />');
-      i++;
-      continue;
-    }
-
-    // blockquote
-    if (/^\s*>\s?/.test(line)) {
-      closeList();
-      const quote: string[] = [];
-      while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
-        quote.push(lines[i].replace(/^\s*>\s?/, ''));
-        i++;
-      }
-      html.push(`<blockquote>${renderInline(quote.join('<br />'))}</blockquote>`);
-      continue;
-    }
-
-    // list items
-    const ul = line.match(/^\s*[-*+]\s+(.*)$/);
-    const ol = line.match(/^\s*\d+\.\s+(.*)$/);
-    if (ul || ol) {
-      const type = ul ? 'ul' : 'ol';
-      if (inList !== type) {
-        closeList();
-        html.push(`<${type}>`);
-        inList = type;
-      }
-      html.push(`<li>${renderInline((ul || ol)![1])}</li>`);
-      i++;
-      continue;
-    }
-
-    // blank line -> paragraph break
-    if (line.trim() === '') {
-      closeList();
-      i++;
-      continue;
-    }
-
-    // paragraph (merge consecutive non-blank, non-special lines)
-    closeList();
-    const para: string[] = [line];
-    i++;
-    while (
-      i < lines.length &&
-      lines[i].trim() !== '' &&
-      !/^(#{1,6})\s/.test(lines[i]) &&
-      !/^```/.test(lines[i]) &&
-      !/^\s*[-*+]\s+/.test(lines[i]) &&
-      !/^\s*\d+\.\s+/.test(lines[i]) &&
-      !/^\s*---+\s*$/.test(lines[i]) &&
-      !/^\s*>\s?/.test(lines[i])
-    ) {
-      para.push(lines[i]);
-      i++;
-    }
-    html.push(`<p>${renderInline(para.join(' '))}</p>`);
-  }
-
-  closeList();
-  return html.join('\n');
+  const html = mdInstance.parse(md ?? '', { async: false });
+  return addHeadingIds(html);
 }

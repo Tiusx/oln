@@ -21,26 +21,32 @@
   --muted: #f6f5f2;
   --border: #eae9e5;
   --input: #dcdad4;
+  --hljs-accent: #8a5a2b;
+  --hljs-func: #4a6080;
 }
 
 .dark {
-  --paper: #121212;
-  --ink: #e7e7e4;
-  --secondary: #9a9a97;
-  --muted: #1e1e1e;
-  --border: #2a2a2a;
-  --input: #3a3a3a;
+  --paper: #1c1b19;
+  --ink: #e2e0d9;
+  --secondary: #9f9d96;
+  --muted: #262520;
+  --border: #36352f;
+  --input: #41403a;
+  --hljs-accent: #d0a06a;
+  --hljs-func: #8aa4c8;
 }
 
 /* Auto dark via system preference */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --paper: #121212;
-    --ink: #e7e7e4;
-    --secondary: #9a9a97;
-    --muted: #1e1e1e;
-    --border: #2a2a2a;
-    --input: #3a3a3a;
+    --paper: #1c1b19;
+    --ink: #e2e0d9;
+    --secondary: #9f9d96;
+    --muted: #262520;
+    --border: #36352f;
+    --input: #41403a;
+    --hljs-accent: #d0a06a;
+    --hljs-func: #8aa4c8;
   }
 }
 
