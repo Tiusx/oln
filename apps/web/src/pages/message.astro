@@ -2,6 +2,8 @@
 import Layout from '@/layouts/Layout.astro';
 import { api } from '@/lib/api';
 
+const config = await api.config().catch(() => null);
+
 let quote: { content: string; creator: string | null } | null = null;
 try {
   quote = await api.hitokoto();
@@ -10,6 +12,8 @@ try {
 }
 const override = await api.page('message').catch(() => null);
 const title = override?.title || '留言板';
+const comments = config?.features.comments ?? null;
+const configuredWaline = comments?.provider === 'waline' && comments.walineServerURL ? comments.walineServerURL : '';
 ---
 
 <Layout title={title} description="欢迎在这里留下你的想法。">
@@ -22,6 +26,53 @@ const title = override?.title || '留言板';
         <div class="prose max-w-none" set:html={override.html} />
       ) : (
         <p class="text-muted-foreground">页面内容为空。</p>
+      )}
+
+      {comments && comments.enabled && override.commentsEnabled !== false && (
+        <section class="comments" id="comments">
+          <h2 class="comments-title">留言</h2>
+          {comments.provider === 'giscus' && comments.giscusRepo && (
+            <script
+              is:inline
+              src="https://giscus.app/client.js"
+              data-repo={comments.giscusRepo}
+              data-repo-id={comments.giscusRepoId}
+              data-category={comments.giscusCategory}
+              data-category-id={comments.giscusCategoryId}
+              data-mapping="pathname"
+              data-strict="0"
+              data-reactions-enabled="1"
+              data-emit-metadata="0"
+              data-input-position="bottom"
+              data-theme="preferred_color_scheme"
+              data-lang="zh-CN"
+              data-loading="lazy"
+              crossorigin="anonymous"
+              async
+            />
+          )}
+          {comments.provider === 'utterances' && (comments.utterancesRepo || comments.giscusRepo) && (
+            <script
+              is:inline
+              src="https://utteranc.es/client.js"
+              data-repo={comments.utterancesRepo || comments.giscusRepo}
+              data-issue-term="pathname"
+              data-theme="preferred_color_scheme"
+              data-label="comments"
+              crossorigin="anonymous"
+              async
+            />
+          )}
+          {comments.provider === 'waline' && configuredWaline && (
+            <div id="waline" data-waline-path="/message" data-waline-url={configuredWaline}></div>
+          )}
+          {!['giscus', 'utterances', 'waline'].includes(comments.provider) && (
+            <p class="comments-note">评论系统尚未配置（请在后台「评论系统」中配置）。</p>
+          )}
+          {comments.provider === 'waline' && !configuredWaline && (
+            <p class="comments-note">评论系统尚未配置 Waline 服务地址（请在后台「评论系统」中设置）。</p>
+          )}
+        </section>
       )}
     </article>
   ) : (
@@ -42,12 +93,74 @@ const title = override?.title || '留言板';
       </figure>
     )}
 
-    <div class="mb-8">
-      <h2 class="text-base font-bold tracking-tight mb-4 font-serif">留言区</h2>
-      <p class="text-muted-foreground text-sm pt-4 leading-relaxed">
-        留言功能正在接入中。你可以通过文章评论或直接写信与我交流，感谢你的支持与鼓励。
-      </p>
-    </div>
+    {comments && comments.enabled && (
+      <section class="comments" id="comments">
+        <h2 class="comments-title">留言区</h2>
+        {comments.provider === 'giscus' && comments.giscusRepo && (
+          <script
+            is:inline
+            src="https://giscus.app/client.js"
+            data-repo={comments.giscusRepo}
+            data-repo-id={comments.giscusRepoId}
+            data-category={comments.giscusCategory}
+            data-category-id={comments.giscusCategoryId}
+            data-mapping="pathname"
+            data-strict="0"
+            data-reactions-enabled="1"
+            data-emit-metadata="0"
+            data-input-position="bottom"
+            data-theme="preferred_color_scheme"
+            data-lang="zh-CN"
+            data-loading="lazy"
+            crossorigin="anonymous"
+            async
+          />
+        )}
+        {comments.provider === 'utterances' && (comments.utterancesRepo || comments.giscusRepo) && (
+          <script
+            is:inline
+            src="https://utteranc.es/client.js"
+            data-repo={comments.utterancesRepo || comments.giscusRepo}
+            data-issue-term="pathname"
+            data-theme="preferred_color_scheme"
+            data-label="comments"
+            crossorigin="anonymous"
+            async
+          />
+        )}
+        {comments.provider === 'waline' && configuredWaline && (
+          <div id="waline" data-waline-path="/message" data-waline-url={configuredWaline}></div>
+        )}
+        {!['giscus', 'utterances', 'waline'].includes(comments.provider) && (
+          <p class="comments-note">评论系统尚未配置（请在后台「评论系统」中配置）。</p>
+        )}
+        {comments.provider === 'waline' && !configuredWaline && (
+          <p class="comments-note">评论系统尚未配置 Waline 服务地址（请在后台「评论系统」中设置）。</p>
+        )}
+      </section>
+    )}
   </section>
   )}
 </Layout>
+
+<script>
+  import { init } from '@waline/client';
+  import '@waline/client/style';
+
+  function initComments() {
+    const el = document.getElementById('waline');
+    if (el) {
+      init({
+        el: '#waline',
+        serverURL: el.dataset.walineUrl,
+        path: el.dataset.walinePath || window.location.pathname,
+        lang: 'zh-CN',
+        dark: 'html[data-theme="dark"]',
+        pageview: true,
+        comment: true,
+      });
+    }
+  }
+  initComments();
+  document.addEventListener('astro:page-load', initComments);
+</script>
