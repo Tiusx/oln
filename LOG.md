@@ -8,6 +8,8 @@
 
 | 日期 | 类型 | 事件摘要 |
 |------|------|----------|
+| **2026-09-05** | 🔍 排查 | 定位 `Cannot read properties of undefined (reading 'startTime')` 实为 Chromium DevTools Live Metrics 内联脚本 bug，与本站无关（归档，未提交/未推送） |
+| **2026-09-05** | 📦 提交 | 留言板接入评论系统（`d2c7788`）
 | **2026-09-05** | ✨ 功能 | 自定义页面支持开关评论：`pages.comments_enabled`、新增可勾选、列表一键切换、前台按页面渲染评论 |
 | **2026-09-05** | ✨ 功能 | 新增「动态（朋友圈/说说）」：moments 表 + API + 后台发布管理 + 前台时间线页 `/moments` + 导航「动态」入口（幂等回填） |
 | **2026-09-05** | ⚡ 性能/修复 | 修复主题切换白屏（`data-astro-rerun`）、页面切换提速（HTML 边缘缓存中间件） |
@@ -69,6 +71,18 @@
 - Markdown 编辑器接入资源库（`ResourcePicker.tsx`：provider 切换、图片网格、自动上传、插入 `![alt](url)`）；封面图支持「资源库」按钮。
 - `.ico` 上传放行；导航列表响应式。
 - 已推送 `origin/master`（`3f87838..777b350`）。
+
+### 🔍 排查：`Cannot read properties of undefined (reading 'startTime')`
+- **现象**：控制台偶发报 `Cannot read properties of undefined (reading 'startTime')`，旧系统 HashRouter 下也偶发，转发（中转鉴权中间件）时更容易触发。
+- **初步排查**：怀疑后端返回的文章字段为 null 导致 `t.entries[0].startTime` 崩溃——**排除**。
+- **根因**：该报错来自 **Chromium/Edge DevTools 自身的 Live Metrics（Performance Insights / 实时性能）面板**注入的 web-vitals 内联脚本（含 `window.devToolsReportSoftNavs=true` 与 `window.__chromium_devtools_metrics_reporter`），在 `t.entries` 为空数组时读取 `t.entries[0].startTime` 的**空值容错 bug**。
+- **验证**：无头 / 无 DevTools 的干净浏览器加载本站**无此报错**；打开 DevTools 面板后访问**任意第三方网页同样报错**——与本站后端/前端代码无关。
+- **善后**：属浏览器工具 bug，**无需改代码、不推送**；关闭 DevTools 或该性能面板即消失。
+
+### 📦 提交（commit `5ad47bc`, `d2c7788`）—— 未推送
+- `5ad47bc`：`about.astro` 补评论开关与 Waline；`config.ts` `walineServerURL` 默认改为空（不再硬编码私有服务地址）。
+- `d2c7788`：留言板 `/message` 接入评论系统（按 `comments.enabled` 渲染评论区，Waline path 用 `/message`）。
+- 均未推送（保持本地）。
 
 ---
 
