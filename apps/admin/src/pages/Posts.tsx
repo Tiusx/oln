@@ -36,6 +36,12 @@ interface PostInput {
 
 type ExportFormat = 'json' | 'md';
 
+const VIEW_KEY = 'oln.admin.posts.view';
+
+function readView() {
+  try { return JSON.parse(sessionStorage.getItem(VIEW_KEY) || 'null'); } catch { return null; }
+}
+
 function postsToJson(posts: Post[]) {
   return {
     exportedAt: new Date().toISOString(),
@@ -259,18 +265,19 @@ function markdownTemplate(): string {
 }
 
 export default function Posts() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [status, setStatus] = useState('');
-  const [q, setQ] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<Post[]>(() => readView()?.posts ?? []);
+  const [total, setTotal] = useState<number>(() => readView()?.total ?? 0);
+  const [page, setPage] = useState<number>(() => readView()?.page ?? 1);
+  const [status, setStatus] = useState<string>(() => readView()?.status ?? '');
+  const [q, setQ] = useState<string>(() => readView()?.q ?? '');
+  const [loading, setLoading] = useState<boolean>(() => !(readView()?.posts?.length));
   const [importing, setImporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
   const [postsPerPage, setPostsPerPage] = useState(10);
   const [homeLatestCount, setHomeLatestCount] = useState(5);
   const [pageSize, setPageSize] = useState(15);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [statusAction, setStatusAction] = useState('');
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
@@ -280,6 +287,12 @@ export default function Posts() {
       setHomeLatestCount(r.data?.basic?.homeLatestCount ?? 5);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(VIEW_KEY, JSON.stringify({ page, status, q, pageSize, posts, total }));
+    } catch { /* 忽略存储失败 */ }
+  }, [page, status, q, pageSize, posts, total]);
 
   async function savePostsPerPage() {
     try {
@@ -387,6 +400,35 @@ export default function Posts() {
     if (fail > 0) toast(`已删除 ${ok} 篇，失败 ${fail} 篇`, 'error');
     else toast(`已删除 ${ok} 篇文章`, 'success');
     load();
+  }
+
+  async function batchChangeStatus() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) { toast('请先勾选要操作的文章', 'error'); return; }
+    if (!statusAction) { toast('请先选择目标状态', 'error'); return; }
+    const target = statusAction as 'published' | 'draft';
+    if (!(await confirm({ title: '批量修改状态', message: `将选中的 ${ids.length} 篇文章${target === 'published' ? '设为「已发布」' : '转为「草稿」'}吗？`, danger: false }))) return;
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await api.updatePostStatus(id, target); ok++; } catch { fail++; }
+    }
+    setSelected(new Set());
+    setStatusAction('');
+    if (fail > 0) toast(`已更新 ${ok} 篇，失败 ${fail} 篇`, 'error');
+    else toast(`已更新 ${ok} 篇文章`, 'success');
+    load();
+  }
+
+  function batchExport() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) { toast('请先勾选要导出的文章', 'error'); return; }
+    const items = posts.filter((p) => selected.has(p.id));
+    if (exportFormat === 'json') {
+      downloadFile(JSON.stringify(postsToJson(items), null, 2), `posts-export-${dateStr()}.json`, 'application/json');
+    } else {
+      downloadFile(postsToMarkdown(items), `posts-export-${dateStr()}.md`, 'text/markdown');
+    }
+    toast(`已导出选中的 ${items.length} 篇文章`, 'success');
   }
 
   async function exportPosts(format: ExportFormat) {
@@ -513,6 +555,41 @@ export default function Posts() {
         </div>
       </div>
 
+      <div className="panel stats-settings">
+        <div className="flex between" style={{ flexWrap: 'wrap', gap: 10 }}>
+          <h4 className="panel-title" style={{ margin: 0 }}>前台展示设置</h4>
+          <div className="flex" style={{ gap: 14, flexWrap: 'wrap' }}>
+            <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0 }}>
+              <label className="field-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>首页最新文章数</label>
+              <input
+                className="field-input"
+                type="number"
+                min={1}
+                max={20}
+                style={{ width: 60 }}
+                value={homeLatestCount}
+                onChange={(e) => setHomeLatestCount(Number(e.target.value))}
+              />
+              <button className="btn secondary sm" onClick={saveHomeLatestCount}>保存</button>
+            </div>
+            <span className="field-sep" />
+            <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0 }}>
+              <label className="field-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>文章列表每页文章数</label>
+              <input
+                className="field-input"
+                type="number"
+                min={1}
+                max={50}
+                style={{ width: 76 }}
+                value={postsPerPage}
+                onChange={(e) => setPostsPerPage(Number(e.target.value))}
+              />
+              <button className="btn secondary sm" onClick={savePostsPerPage}>保存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="panel toolbar flex">
         <input className="field-input" type="text" placeholder="搜索标题或内容" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} style={{ maxWidth: 260 }} />
         <select className="field-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} style={{ maxWidth: 140 }}>
@@ -529,45 +606,26 @@ export default function Posts() {
         >
           {[10, 15, 20, 30, 50, 100].map((n) => <option key={n} value={n}>{n} 条</option>)}
         </select>
-        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0 }}>
-          <label className="field-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>首页最新文章数</label>
-          <input
-            className="field-input"
-            type="number"
-            min={1}
-            max={20}
-            style={{ width: 60 }}
-            value={homeLatestCount}
-            onChange={(e) => setHomeLatestCount(Number(e.target.value))}
-          />
-          <button className="btn secondary sm" onClick={saveHomeLatestCount}>保存</button>
-        </div>
-        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, margin: 0, marginLeft: 'auto' }}>
-          <label className="field-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>文章列表每页文章数</label>
-          <input
-            className="field-input"
-            type="number"
-            min={1}
-            max={50}
-            style={{ width: 76 }}
-            value={postsPerPage}
-            onChange={(e) => setPostsPerPage(Number(e.target.value))}
-          />
-          <button className="btn secondary sm" onClick={savePostsPerPage}>保存</button>
-        </div>
       </div>
 
       {selected.size > 0 && !loading && (
-        <div className="panel toolbar flex between" style={{ marginBottom: 12 }}>
-          <span className="muted">已选 {selected.size} 篇文章</span>
-          <div className="flex" style={{ gap: 8 }}>
-            <button className="btn danger sm" onClick={batchDelete}>批量删除</button>
-            <button className="btn secondary sm" onClick={() => setSelected(new Set())}>取消选择</button>
+        <div className="panel toolbar" style={{ marginBottom: 12 }}>
+          <div className="flex" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <span className="muted">已选 {selected.size} 篇</span>
+            <select className="field-input" value={statusAction} onChange={(e) => setStatusAction(e.target.value)} style={{ width: 112 }}>
+              <option value="">改变状态…</option>
+              <option value="published">发布</option>
+              <option value="draft">转为草稿</option>
+            </select>
+            <button className="btn secondary sm" onClick={batchChangeStatus}>应用状态</button>
+            <button className="btn secondary sm" onClick={batchExport}>导出所选（{exportFormat.toUpperCase()}）</button>
+            <button className="btn danger sm" onClick={batchDelete}>删除</button>
+            <button className="btn secondary sm" onClick={() => { setSelected(new Set()); setStatusAction(''); }}>取消选择</button>
           </div>
         </div>
       )}
 
-      {loading ? <p className="muted flex"><span className="spinner" /> 加载中…</p> : (
+      {loading && posts.length === 0 ? <p className="muted flex"><span className="spinner" /> 加载中…</p> : (
         <div className="table-wrap">
           <table>
             <thead><tr>
@@ -578,15 +636,26 @@ export default function Posts() {
             </tr></thead>
             <tbody>
               {posts.map((p) => (
-                <tr key={p.id} style={{ opacity: selected.has(p.id) ? 0.6 : 1 }}>
-                  <td style={{ textAlign: 'center' }}>
+                <tr key={p.id} className="post-row" style={{ opacity: selected.has(p.id) ? 0.6 : 1 }}>
+                  <td className="cell-check" style={{ textAlign: 'center' }}>
                     <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} aria-label={`选择 ${p.title}`} />
                   </td>
-                  <td><Link to={`/posts/${p.id}`}>{p.pinned ? '📌 ' : ''}{p.title}</Link></td>
-                  <td><span className={`badge ${p.status}`}>{p.status === 'published' ? '已发布' : '草稿'}</span></td>
-                  <td>{p.tags.map((t) => t.name).join(', ')}</td>
-                  <td>{p.publishedAt ? new Date(p.publishedAt).toLocaleString() : '-'}</td>
-                  <td>
+                  <td className="cell-title" data-label="标题">
+                    <div className="post-title-cell">
+                      <Link to={`/posts/${p.id}`}>{p.pinned ? '📌 ' : ''}{p.title}</Link>
+                      {p.excerpt && <div className="post-title-excerpt">{p.excerpt}</div>}
+                    </div>
+                  </td>
+                  <td data-label="状态"><span className={`status-dot ${p.status}`} title={p.status === 'published' ? '已发布' : '草稿'} /></td>
+                  <td data-label="标签">
+                    <div className="post-tags-cell">
+                      {p.tags.length > 0
+                        ? p.tags.map((t) => <span key={t.id} className="tag-chip">#{t.name}</span>)
+                        : <span className="muted" style={{ fontSize: 12 }}>-</span>}
+                    </div>
+                  </td>
+                  <td data-label="发布时间">{p.publishedAt ? new Date(p.publishedAt).toLocaleString() : '-'}</td>
+                  <td data-label="操作">
                     <Link className="btn sm" to={`/posts/${p.id}`} style={{ marginRight: 6 }}>编辑</Link>
                     <button className="btn danger sm" onClick={() => remove(p.id)}>删除</button>
                   </td>

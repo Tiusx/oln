@@ -21,7 +21,7 @@ export interface SiteConfig {
   basic: { siteName: string; tagline: string; bio: string; logo: string; favicon: string; language: string; timezone: string; homeLatestCount: number; postsPerPage: number };
   theme: { active: string; allowToggle: boolean; preferred: 'system' | 'light' | 'dark' };
   seo: { description: string; keywords: string; ogImage: string; enableSitemap: boolean; enableRobots: boolean };
-  nav: { menu: { label: string; url: string; newWindow: boolean }[]; builtin: { show: boolean; links: { label: string; url: string; enabled: boolean }[] } };
+  nav: { menu: { type?: 'page' | 'link' | 'builtin'; label: string; url: string; pageId?: string; newWindow: boolean; enabled?: boolean }[]; builtin?: { show: boolean; links: { label: string; url: string; enabled: boolean }[] } };
   author: { name: string; avatar: string; bio: string; socials: { label: string; url: string }[] };
   footer: { footerText: string; beian: string };
   inject: { headHtml: string; footHtml: string };

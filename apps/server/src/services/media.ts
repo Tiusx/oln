@@ -8,6 +8,8 @@ const extByType: Record<string, string> = {
   'image/webp': 'webp',
   'image/avif': 'avif',
   'image/svg+xml': 'svg',
+  'image/x-icon': 'ico',
+  'image/vnd.microsoft.icon': 'ico',
   'video/mp4': 'mp4',
   'video/webm': 'webm',
   'application/pdf': 'pdf',

@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { useToast } from '../ui/Feedback';
+import { useToast, useConfirm } from '../ui/Feedback';
 
 type Settings = any;
+type PageRow = { id: string; title: string; slug: string; status: string };
 
-const DEFAULT_BUILTIN = [
+type MenuItem = {
+  type: 'page' | 'link' | 'builtin';
+  label: string;
+  url: string;
+  pageId?: string;
+  newWindow: boolean;
+  enabled: boolean;
+};
+
+const DEFAULT_BUILTIN: { label: string; url: string; enabled: boolean }[] = [
   { label: '文章', url: '/posts', enabled: true },
   { label: '归档', url: '/archive', enabled: true },
   { label: '标签', url: '/tags', enabled: true },
@@ -14,63 +24,107 @@ const DEFAULT_BUILTIN = [
   { label: '一言', url: '/hitokoto', enabled: true },
 ];
 
+// Normalize the config into one unified menu list:
+// - legacy `nav.builtin.links` are folded in as `type: 'builtin'` entries
+//   (disabled when the whole built-in nav was hidden);
+// - empty menus (fresh sites) start from the built-in defaults.
+function unifyNav(nav: any): MenuItem[] {
+  const menu: MenuItem[] = (nav?.menu || []).map((m: any) => ({
+    type: m.type === 'page' ? 'page' : m.type === 'builtin' ? 'builtin' : 'link',
+    label: m.label || '',
+    url: m.url || '',
+    pageId: m.type === 'page' ? m.pageId : undefined,
+    newWindow: !!m.newWindow,
+    enabled: m.enabled !== false,
+  }));
+
+  if (nav?.builtin) {
+    const urls = new Set(menu.map((m) => m.url));
+    const hiddenAll = nav.builtin.show === false;
+    for (const l of nav.builtin.links || []) {
+      if (urls.has(l.url)) continue;
+      menu.push({
+        type: 'builtin',
+        label: l.label || '',
+        url: l.url || '',
+        newWindow: false,
+        enabled: hiddenAll ? false : l.enabled !== false,
+      });
+      urls.add(l.url);
+    }
+    return menu;
+  }
+
+  if (menu.length === 0) {
+    return DEFAULT_BUILTIN.map((l) => ({ type: 'builtin', ...l, newWindow: false }));
+  }
+  return menu;
+}
+
 export default function Navigation() {
   const [config, setConfig] = useState<Settings | null>(null);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [pages, setPages] = useState<PageRow[]>([]);
   const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   const load = useCallback(async () => {
-    const r = await api.getConfig();
-    setConfig(r.data);
+    try {
+      const [r, pr] = await Promise.all([api.getConfig(), api.listPages()]);
+      setConfig(r.data);
+      setItems(unifyNav(r.data.nav));
+      setPages(pr.data);
+    } catch {}
   }, []);
   useEffect(() => { load(); }, [load]);
 
   if (!config) return <p className="muted flex"><span className="spinner" /> 加载中…</p>;
 
-  const nav = config.nav || { builtin: { show: true, links: [] }, menu: [] };
-  const setNav = (fn: (n: any) => any) => setConfig((p: any) => ({ ...p, nav: fn(p.nav || {}) }));
-
-  const builtin = nav.builtin || { show: true, links: DEFAULT_BUILTIN };
-  const menu = nav.menu || [];
-
-  const updateBuiltin = (fn: (b: any) => any) => setNav((n: any) => ({ ...n, builtin: fn(n.builtin || { show: true, links: DEFAULT_BUILTIN }) }));
-  const updateMenu = (fn: (m: any[]) => any[]) => setNav((n: any) => ({ ...n, menu: fn(n.menu || []) }));
-
-  async function save() {
-    try {
-      await api.saveConfig(config);
-      toast('导航配置已保存', 'success');
-    } catch (e: any) {
-      toast(e.message || '保存失败', 'error');
+  const pagesById = new Map(pages.map((p) => [p.id, p]));
+  const pagesBySlug = new Map<string, PageRow>();
+  for (const p of pages) {
+    if (!p.slug) continue;
+    const prev = pagesBySlug.get(p.slug);
+    if (!prev || (p.status === 'published' && prev.status !== 'published')) pagesBySlug.set(p.slug, p);
+  }
+  // Resolve the label for an entry: a matching published page overrides the nav default.
+  const resolvedLabel = (m: MenuItem) => {
+    if (m.type === 'page' && m.pageId) {
+      const pg = pagesById.get(m.pageId);
+      if (pg) return pg.title;
+      return `${m.label}（页面已删除）`;
     }
-  }
+    if (m.type === 'page') return m.label;
+    const page = pagesBySlug.get(String(m.url || '').replace(/^\/+|\/+$/g, ''));
+    return page && page.status === 'published' ? page.title : m.label;
+  };
 
-  function addMenuItem() {
-    updateMenu(m => [...m, { label: '', url: '', newWindow: false }]);
+  const updateItem = (i: number, patch: Partial<MenuItem>) => {
+    setItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, ...patch } : item)));
+  };
+  const moveItem = (i: number, dir: -1 | 1) => {
+    setItems((prev) => {
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const next = prev.slice();
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  };
+  function addLinkItem() {
+    setItems((prev) => [...prev, { type: 'link', label: '', url: '', newWindow: false, enabled: true }]);
   }
-  function removeMenuItem(i: number) {
-    updateMenu(m => m.filter((_, idx) => idx !== i));
+  function addPageItem(page: PageRow) {
+    setItems((prev) => {
+      if (prev.some((m) => (m.type === 'page' && m.pageId === page.id) || m.url === `/${page.slug}`)) return prev;
+      return [...prev, { type: 'page', pageId: page.id, label: page.title, url: `/${page.slug}`, newWindow: false, enabled: true }];
+    });
   }
-  function updateMenuItem(i: number, patch: any) {
-    updateMenu(m => m.map((item, idx) => idx === i ? { ...item, ...patch } : item));
+  async function removeMenuItem(i: number, label: string) {
+    const name = label || '该项';
+    if (!(await confirm({ title: '删除菜单项', message: `确定从导航中移除「${name}」吗？`, danger: true }))) return;
+    setItems((prev) => prev.filter((_, idx) => idx !== i));
   }
-  function updateBuiltinLink(i: number, patch: any) {
-    updateBuiltin(b => ({ ...b, links: b.links.map((l: any, idx: number) => idx === i ? { ...l, ...patch } : l) }));
-  }
-  // Move an item up/down; returns the new array (no-op at the array edges).
-  function move<T>(arr: T[], i: number, dir: -1 | 1): T[] {
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= arr.length) return arr;
-    const next = arr.slice();
-    [next[i], next[j]] = [next[j], next[i]];
-    return next;
-  }
-  function moveBuiltinLink(i: number, dir: -1 | 1) {
-    updateBuiltin(b => ({ ...b, links: move(b.links, i, dir) }));
-  }
-  function moveMenuItem(i: number, dir: -1 | 1) {
-    updateMenu(m => move(m, i, dir));
-  }
-  // Render an up/down reorder control pair.
   function reorderBtn(i: number, total: number, onMove: (dir: -1 | 1) => void) {
     return (
       <span className="reorder-group">
@@ -94,6 +148,30 @@ export default function Navigation() {
     );
   }
 
+  const usedUrls = new Set(items.map((m) => m.url));
+  const pagesNotInMenu = pages.filter((p) =>
+    p.status === 'published'
+    && !items.some((m: MenuItem) => m.type === 'page' && m.pageId === p.id)
+    && !usedUrls.has(`/${p.slug}`),
+  );
+
+  async function save() {
+    const clean = items.map((it) => ({
+      type: it.type,
+      label: it.label || '',
+      url: it.url || '',
+      ...(it.type === 'page' ? { pageId: it.pageId } : {}),
+      newWindow: !!it.newWindow,
+      enabled: it.enabled !== false,
+    }));
+    try {
+      await api.saveConfig({ ...config, nav: { menu: clean } });
+      toast('导航配置已保存', 'success');
+    } catch (e: any) {
+      toast(e.message || '保存失败', 'error');
+    }
+  }
+
   return (
     <div>
       <div className="flex between toolbar">
@@ -101,41 +179,93 @@ export default function Navigation() {
         <button onClick={save}>保存配置</button>
       </div>
 
-      <div className="panel">
-        <h3 className="panel-title">内置导航</h3>
-        <label className="field-checkbox-label" style={{ margin: '8px 0 12px', fontWeight: 600 }}>
-          <input type="checkbox" checked={builtin.show !== false} onChange={(e) => updateBuiltin(b => ({ ...b, show: e.target.checked }))} />
-          显示默认导航（文章 / 归档 / 标签 / 友链 / 关于 / 留言板 / 一言）
-        </label>
+      <div className="panel" style={{ marginTop: 0 }}>
+        <h3 className="panel-title">菜单（内置、页面与自定义链接统一排列）</h3>
+        <p className="muted" style={{ marginTop: -6, fontSize: 12.5 }}>
+          内置项不可删除、可开启/关闭显示；页面与自定义链接可删除。所有条目共同参与排序；菜单跳转地址若与页面地址重复，将优先显示页面标题。
+        </p>
+        {items.length === 0 && <div className="state-box" style={{ margin: '8px 0 14px' }}>还没有菜单项，可添加自定义链接或从下方列表把页面加入导航。</div>}
+        {items.map((item: MenuItem, i: number) => {
+          const isBuiltin = item.type === 'builtin';
+          const isPage = item.type === 'page';
+          const matchedPage = !isPage && !isBuiltin ? pagesBySlug.get(String(item.url || '').replace(/^\/+|\/+$/g, '')) : undefined;
+          return (
+            <div key={`${item.pageId || item.type}-${i}`} className="menu-row">
+              <span className="menu-row-lead">
+                {reorderBtn(i, items.length, (dir) => moveItem(i, dir))}
+                <span className={`menu-type${isPage ? ' is-page' : isBuiltin ? ' is-builtin' : ''}`}>
+                  {isPage ? '页面' : isBuiltin ? '内置' : '链接'}
+                </span>
+              </span>
 
-        {(builtin.links || []).map((link: any, i: number) => (
-          <div key={i} className="flex" style={{ marginBottom: 8 }}>
-            {reorderBtn(i, builtin.links.length, (dir) => moveBuiltinLink(i, dir))}
-            <input type="text" className="field-input" value={link.label} placeholder="名称" style={{ width: 140 }} onChange={(e) => updateBuiltinLink(i, { label: e.target.value })} />
-            <input type="text" className="field-input" value={link.url} placeholder="/链接" style={{ width: 180 }} onChange={(e) => updateBuiltinLink(i, { url: e.target.value })} />
-            <label className="field-checkbox-label">
-              <input type="checkbox" checked={link.enabled !== false} onChange={(e) => updateBuiltinLink(i, { enabled: e.target.checked })} />
-              显示
-            </label>
-          </div>
-        ))}
-      </div>
+              <div className="menu-row-body">
+                {isPage ? (
+                  <>
+                    <span className="menu-page-title">{resolvedLabel(item)}</span>
+                    <span className="menu-page-slug" title="由页面自动生成">{item.url || ''}</span>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      className="field-input menu-label"
+                      value={item.label}
+                      placeholder="名称"
+                      onChange={(e) => updateItem(i, { label: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      className="field-input menu-url"
+                      value={item.url || ''}
+                      placeholder="/链接"
+                      onChange={(e) => {
+                        const raw = (e.target.value || '').replace(/^\/+|\/+$/g, '');
+                        updateItem(i, isBuiltin ? { url: e.target.value } : { url: raw ? `/${raw}` : '', pageId: undefined, type: 'link' });
+                      }}
+                    />
+                    {matchedPage && matchedPage.status === 'published' && (
+                      <span className="menu-page-slug matched" title={`存在同名页面「${matchedPage.title}」，将覆盖该链接名称与内容`}>
+                        覆盖于页面
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
 
-      <div className="panel" style={{ marginTop: 20 }}>
-        <h3 className="panel-title">自定义菜单</h3>
-        {menu.map((item: any, i: number) => (
-          <div key={i} className="flex" style={{ marginBottom: 8 }}>
-            {reorderBtn(i, menu.length, (dir) => moveMenuItem(i, dir))}
-            <input type="text" className="field-input" value={item.label} placeholder="名称" style={{ width: 140 }} onChange={(e) => updateMenuItem(i, { label: e.target.value })} />
-            <input type="text" className="field-input" value={item.url} placeholder="/链接" onChange={(e) => updateMenuItem(i, { url: e.target.value })} />
-            <label className="field-checkbox-label">
-              <input type="checkbox" checked={item.newWindow} onChange={(e) => updateMenuItem(i, { newWindow: e.target.checked })} />
-              新窗口
-            </label>
-            <button className="danger" onClick={() => removeMenuItem(i)}>×</button>
-          </div>
-        ))}
-        <button className="secondary" onClick={addMenuItem}>+ 添加菜单项</button>
+              <div className="menu-row-actions">
+                {!isPage && !isBuiltin && (
+                  <label className="field-checkbox-label">
+                    <input type="checkbox" checked={!!item.newWindow} onChange={(e) => updateItem(i, { newWindow: e.target.checked })} />
+                    新窗口
+                  </label>
+                )}
+                <label className="field-checkbox-label">
+                  <input type="checkbox" checked={item.enabled !== false} onChange={(e) => updateItem(i, { enabled: e.target.checked })} />
+                  显示
+                </label>
+                {!isBuiltin && (
+                  <button className="danger" onClick={() => removeMenuItem(i, resolvedLabel(item))}>×</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div className="flex" style={{ gap: 10, marginTop: 4 }}>
+          <button className="secondary" onClick={addLinkItem}>+ 添加链接</button>
+          {pagesNotInMenu.length > 0 && (
+            <details className="add-page-picker">
+              <summary className="secondary" style={{ listStyle: 'none' }}>+ 添加页面</summary>
+              <div className="add-page-options">
+                {pagesNotInMenu.map((p) => (
+                  <button key={p.id} className="ghost" onClick={() => addPageItem(p)}>
+                    <span className="page-opt-title">{p.title}</span>
+                    <span className="page-opt-slug">/{p.slug}</span>
+                  </button>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
       </div>
     </div>
   );

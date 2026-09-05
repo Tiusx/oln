@@ -1,12 +1,13 @@
 import { Hono } from 'hono';
 import { withDb, loadUser, requireAuth, type AppBindings } from '../middleware/auth';
 import { parseBody, ApiError } from '../lib/http';
-import { postSchema, tagSchema, categorySchema } from '../schemas';
+import { postSchema, tagSchema, categorySchema, postStatusSchema } from '../schemas';
 import {
   listPosts,
   getPost,
   createPost,
   updatePost,
+  updatePostStatus,
   deletePost,
   listTags,
   createTag,
@@ -85,6 +86,15 @@ export function postRoutes(): Hono<AppBindings> {
     const id = c.req.param('id');
     const body = await parseBody(c.req, postSchema);
     const result = await updatePost(db, id, body, authorId);
+    if (!result) throw new ApiError(404, 'Post not found');
+    return c.json({ success: true, data: result });
+  });
+
+  // PATCH /admin/api/posts/:id/status (batch status change)
+  app.patch('/:id/status', async (c) => {
+    const db = c.get('db');
+    const body = await parseBody(c.req, postStatusSchema);
+    const result = await updatePostStatus(db, c.req.param('id'), body.status);
     if (!result) throw new ApiError(404, 'Post not found');
     return c.json({ success: true, data: result });
   });

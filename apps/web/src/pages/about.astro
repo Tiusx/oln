@@ -6,9 +6,23 @@ const config = await api.config().catch(() => null);
 const author = config?.author;
 const siteName = config?.basic.siteName || 'Blog';
 const siteBio = config?.basic.bio || '';
+const override = await api.page('about').catch(() => null);
+const title = override?.title || '关于';
 ---
 
-<Layout title="关于" description={config?.seo.description} config={config}>
+<Layout title={title} description={config?.seo.description} config={config}>
+  {override ? (
+    <article class="mx-auto max-w-4xl px-6 py-10">
+      <header class="mb-10">
+        <h1 class="text-2xl md:text-3xl font-extrabold leading-tight mb-4 font-serif">{override.title}</h1>
+      </header>
+      {override.html ? (
+        <div class="prose max-w-none" set:html={override.html} />
+      ) : (
+        <p class="text-muted-foreground">页面内容为空。</p>
+      )}
+    </article>
+  ) : (
   <section class="mx-auto max-w-4xl px-6 pt-12 pb-12">
     <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-3 font-serif">关于</h1>
     <p class="text-base text-muted-foreground mb-10">了解这个博客与博主。</p>
@@ -47,4 +61,5 @@ const siteBio = config?.basic.bio || '';
       <p>有任何问题或建议，欢迎通过文章评论与我联系。</p>
     </div>
   </section>
+  )}
 </Layout>

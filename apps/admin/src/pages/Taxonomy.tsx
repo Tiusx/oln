@@ -7,12 +7,16 @@ export default function Taxonomy() {
   const [tags, setTags] = useState<any[]>([]);
   const [newCat, setNewCat] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [selTags, setSelTags] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
   const load = useCallback(async () => {
     api.listCategories().then((r) => setCategories(r.data)).catch(() => {});
-    api.listTags().then((r) => setTags(r.data)).catch(() => {});
+    api.listTags().then((r) => {
+      setTags(r.data);
+      setSelTags((prev) => new Set([...prev].filter((id) => r.data.some((t: any) => t.id === id))));
+    }).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -61,6 +65,39 @@ export default function Taxonomy() {
     }
   }
 
+  function toggleSelTag(id: string) {
+    setSelTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  const allTagsSelected = tags.length > 0 && tags.every((t) => selTags.has(t.id));
+
+  function toggleSelAllTags() {
+    setSelTags((prev) => {
+      const next = new Set(prev);
+      if (allTagsSelected) tags.forEach((t) => next.delete(t.id));
+      else tags.forEach((t) => next.add(t.id));
+      return next;
+    });
+  }
+
+  async function batchDeleteTags() {
+    const ids = Array.from(selTags);
+    if (ids.length === 0) return;
+    if (!(await confirm({ title: '批量删除标签', message: `确定删除选中的 ${ids.length} 个标签吗？文章上的关联标签将被移除。`, danger: true }))) return;
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await api.deleteTag(id); ok++; } catch { fail++; }
+    }
+    setSelTags(new Set());
+    if (fail > 0) toast(`已删除 ${ok} 个标签，失败 ${fail} 个`, 'error');
+    else toast(`已删除 ${ok} 个标签`, 'success');
+    load();
+  }
+
   return (
     <div className="tax">
       <h1 className="page-title">分类 / 标签</h1>
@@ -104,13 +141,29 @@ export default function Taxonomy() {
             />
             <button className="btn" onClick={addTag}>添加</button>
           </div>
-          <div className="flex wrap" style={{ marginTop: 6 }}>
+          <div className="flex between" style={{ marginTop: 10 }}>
+            {tags.length > 0 && (
+              <label className="sel-all">
+                <input type="checkbox" checked={allTagsSelected} onChange={toggleSelAllTags} />
+                全选标签
+              </label>
+            )}
+            {selTags.size > 0 && (
+              <button className="btn danger sm" onClick={batchDeleteTags}>删除所选标签（{selTags.size}）</button>
+            )}
+          </div>
+          <div className="flex wrap" style={{ marginTop: 8 }}>
             {tags.length === 0 && <div className="state-box" style={{ padding: '24px 12px', width: '100%' }}>还没有标签，添加一个吧～</div>}
             {tags.map((t) => (
-              <span key={t.id} className="chip">
+              <label key={t.id} className={`chip${selTags.has(t.id) ? ' on' : ''}`}>
+                <input type="checkbox" checked={selTags.has(t.id)} onChange={() => toggleSelTag(t.id)} />
                 #{t.name}
-                <button className="chip-x" title={`删除 ${t.name}`} onClick={() => removeTag(t.id, t.name)}>×</button>
-              </span>
+                <button
+                  className="chip-x"
+                  title={`删除 ${t.name}`}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeTag(t.id, t.name); }}
+                >×</button>
+              </label>
             ))}
           </div>
         </section>

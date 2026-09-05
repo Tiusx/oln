@@ -10,6 +10,10 @@ export const changePasswordSchema = z.object({
   newPassword: z.string().min(8),
 });
 
+export const postStatusSchema = z.object({
+  status: z.enum(['draft', 'published']),
+});
+
 export const postSchema = z.object({
   title: z.string().min(1).max(200),
   slug: z.string().min(1).max(200).optional(),

@@ -100,6 +100,8 @@ changePassword: (currentPassword: string, newPassword: string) =>
   updatePost: (id: string, data: any) =>
     request<ApiEnvelope<{ id: string }>>('PUT', `/posts/${id}`, data),
   deletePost: (id: string) => request<ApiEnvelope<null>>('DELETE', `/posts/${id}`),
+  updatePostStatus: (id: string, status: 'draft' | 'published') =>
+    request<ApiEnvelope<{ id: string }>>('PATCH', `/posts/${id}/status`, { status }),
 
   // tags & categories
   listTags: () => request<ApiEnvelope<any[]>>('GET', '/posts/tags'),

@@ -1,0 +1,34 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { api } from '@/lib/api';
+
+const { slug } = Astro.params;
+const config = await api.config().catch(() => null);
+
+if (!slug) return Astro.redirect('/404');
+
+const page = await api.page(slug).catch(() => null);
+if (!page) return Astro.redirect('/404');
+---
+
+<Layout title={page.title} description={config?.seo.description} config={config}>
+  <article class="mx-auto max-w-4xl px-6 py-10">
+    <header class="mb-10">
+      <h1 class="text-2xl md:text-3xl font-extrabold leading-tight mb-4 font-serif">
+        {page.title}
+      </h1>
+    </header>
+
+    {page.html ? (
+      <div class="prose max-w-none" set:html={page.html} />
+    ) : (
+      <p class="text-muted-foreground">页面内容为空。</p>
+    )}
+
+    <div class="mt-16 pt-8">
+      <a href="/" class="inline-flex items-center gap-2 text-sm font-serif text-muted-foreground hover:text-accent transition-colors">
+        <span>&larr;</span> 返回首页
+      </a>
+    </div>
+  </article>
+</Layout>

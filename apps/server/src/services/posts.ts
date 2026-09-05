@@ -153,6 +153,14 @@ export async function updatePost(db: AppDb, id: string, data: PostInputData, aut
   return { id };
 }
 
+export async function updatePostStatus(db: AppDb, id: string, status: 'draft' | 'published') {
+  const existing = await db.select().from(posts).where(eq(posts.id, id)).get();
+  if (!existing) return null;
+  const publishedAt = status === 'published' ? (existing.publishedAt ?? new Date()) : existing.publishedAt;
+  await db.update(posts).set({ status, publishedAt }).where(eq(posts.id, id));
+  return { id };
+}
+
 export async function deletePost(db: AppDb, id: string) {
   await db.delete(posts).where(eq(posts.id, id));
 }

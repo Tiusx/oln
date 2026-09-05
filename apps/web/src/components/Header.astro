@@ -13,10 +13,7 @@ const currentPath = Astro.url.pathname;
 
 const siteName = config?.basic.siteName || 'Blog';
 const logo = config?.basic.logo;
-const menu = config?.nav.menu || [];
-const builtinLinks = Array.isArray(config?.nav?.builtin?.links) ? config.nav.builtin.links : [];
-const showBuiltin = config?.nav?.builtin?.show !== false;
-const extraMenu = showBuiltin ? builtinLinks.filter((l) => l.enabled) : [];
+const menu = (config?.nav.menu || []).filter((m) => m.enabled !== false);
 
 interface NavItem {
   url: string;
@@ -28,7 +25,6 @@ interface NavItem {
 const navLinks: NavItem[] = [
   { url: '/', label: '首页' },
   ...menu.map((item): NavItem => ({ url: item.url, label: item.label, target: item.newWindow ? '_blank' : undefined, rel: item.newWindow ? 'noopener' : undefined })),
-  ...extraMenu.map((item): NavItem => ({ url: item.url, label: item.label })),
 ];
 
 function isActive(url: string): boolean {

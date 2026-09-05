@@ -148,6 +148,7 @@ function Sidebar({ onLogout, open, onClose }: { onLogout: () => void; open: bool
       <div className="brand">
         <span className="logo-dot">B</span>
         管理后台
+        <button className="sidebar-close" onClick={onClose} aria-label="关闭菜单">×</button>
       </div>
 <nav>
         {groups.map((g, gi) => (

@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../ui/Feedback';
+import MarkdownEditor from '../ui/MarkdownEditor';
+import ResourcePicker from '../ui/ResourcePicker';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -15,6 +17,17 @@ function toLocalInput(iso: string) {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function isAsciiTag(v: string) {
+  return /^[A-Za-z0-9\s\-]+$/.test(v);
+}
+
+function normalizeTagName(v: string) {
+  const t = v.trim();
+  if (!t) return '';
+  if (isAsciiTag(t)) return t.replace(/(^|[\s-])([a-zA-Z0-9])/g, (m) => m.toUpperCase());
+  return t;
 }
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
@@ -36,35 +49,19 @@ export default function PostEditor() {
   const [commentsEnabled, setCommentsEnabled] = useState(true);
   const [categoryId, setCategoryId] = useState('');
   const [coverImage, setCoverImage] = useState('');
+  const [coverPicker, setCoverPicker] = useState(false);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tags, setTags] = useState<any[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [tagFocused, setTagFocused] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
-  const [publishedAt, setPublishedAt] = useState('');
+  const [publishedAt, setPublishedAt] = useState(isEdit ? '' : toLocalInput(new Date().toISOString()));
   const [preview, setPreview] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState('');
   const { toast } = useToast();
-
-  const wrapSelection = useCallback((prefix: string, suffix: string) => {
-    setContent((prev) => {
-      const ta = document.querySelector('.md') as HTMLTextAreaElement;
-      const start = ta?.selectionStart ?? 0;
-      const end = ta?.selectionEnd ?? 0;
-      const selected = prev.slice(start, end);
-      const text = prefix + selected + suffix;
-      const newVal = prev.slice(0, start) + text + prev.slice(end);
-      requestAnimationFrame(() => {
-        if (ta) {
-          ta.focus();
-          ta.selectionStart = start + prefix.length;
-          ta.selectionEnd = end + prefix.length + (selected ? suffix.length : 0);
-        }
-      });
-      return newVal;
-    });
-  }, []);
 
   useEffect(() => {
     api.listTags().then((r) => setTags(r.data)).catch(() => {});
@@ -130,9 +127,38 @@ export default function PostEditor() {
     }
   }
 
-  function toggleTag(tid: string) {
-    setTagIds((prev) => (prev.includes(tid) ? prev.filter((x) => x !== tid) : [...prev, tid]));
+  async function addTagByName(raw: string) {
+    const name = normalizeTagName(raw);
+    if (!name) return;
+    const selectedNames = tagIds
+      .map((id) => tags.find((t) => t.id === id))
+      .filter(Boolean)
+      .map((t) => t.name.toLowerCase());
+    if (selectedNames.includes(name.toLowerCase())) { setTagInput(''); return; }
+    const existing = tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
+    let id: string;
+    if (existing) {
+      id = existing.id;
+    } else {
+      try {
+        const r = await api.createTag({ name });
+        id = r.data.id;
+        setTags((prev) => [...prev, { id, name, slug: '' }]);
+        toast(`已新建标签「${name}」`, 'info');
+      } catch (e: any) {
+        toast(e.message || '标签创建失败', 'error');
+        return;
+      }
+    }
+    setTagIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setTagInput('');
   }
+
+  const selectedTags = tagIds.map((id) => tags.find((t) => t.id === id)).filter(Boolean);
+  const tagQuery = tagInput.trim().toLowerCase();
+  const tagSuggestions = tagQuery
+    ? tags.filter((t) => !tagIds.includes(t.id) && t.name.toLowerCase().includes(tagQuery)).slice(0, 8)
+    : [];
 
   if (loading) return <p className="muted flex"><span className="spinner" /> 加载中…</p>;
 
@@ -163,6 +189,7 @@ export default function PostEditor() {
       ) : (
         <>
           <div className="editor-card editor-cover">
+            <div className="editor-card-title">内容</div>
             <label className="editor-label">标题</label>
             <input
               className="editor-title-input"
@@ -171,14 +198,35 @@ export default function PostEditor() {
               onChange={(e) => onTitleChange(e.target.value)}
               placeholder="输入一个吸引人的标题…"
             />
-          </div>
-
-          <div className="editor-card">
-            <div className="editor-grid2">
+            <div className="editor-grid2" style={{ marginTop: 18 }}>
               <div className="editor-field">
                 <label className="editor-label">Slug（URL 别名）</label>
                 <input className="editor-input" type="text" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="post-slug" />
               </div>
+              <div className="editor-field">
+                <label className="editor-label">封面图 URL</label>
+                <div className="res-url-input">
+                  <input className="editor-input" type="text" value={coverImage} onChange={(e) => setCoverImage(e.target.value)} placeholder="https://…" />
+                  <button className="btn sm" type="button" onClick={() => setCoverPicker(true)} title="从资源库选择">资源库</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="editor-card">
+            <div className="editor-card-title">正文</div>
+            <MarkdownEditor value={content} onChange={setContent} placeholder="开始书写你的想法…" />
+          </div>
+
+          <div className="editor-card">
+            <div className="editor-card-title">摘要</div>
+            <label className="editor-label">（留空将自动截取正文开头）</label>
+            <textarea className="editor-input" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="简要描述这篇文章…" rows={3} />
+          </div>
+
+          <div className="editor-card">
+            <div className="editor-card-title">发布设置</div>
+            <div className="editor-grid2">
               <div className="editor-field">
                 <label className="editor-label">分类</label>
                 <select className="editor-input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
@@ -197,71 +245,75 @@ export default function PostEditor() {
                 <label className="editor-label">发布时间</label>
                 <input className="editor-input" type="datetime-local" value={publishedAt} onChange={(e) => setPublishedAt(e.target.value)} />
               </div>
-              <div className="editor-field">
-                <label className="editor-label">封面图 URL</label>
-                <input className="editor-input" type="text" value={coverImage} onChange={(e) => setCoverImage(e.target.value)} placeholder="https://…" />
+            </div>
+
+            <div className="editor-field" style={{ marginTop: 16 }}>
+              <label className="editor-label">标签</label>
+              <div className="tag-input-wrap">
+                <input
+                  className="editor-input"
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onFocus={() => setTagFocused(true)}
+                  onBlur={() => setTimeout(() => setTagFocused(false), 120)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); addTagByName(tagInput); }
+                    if (e.key === 'Backspace' && !tagInput && selectedTags.length) {
+                      setTagIds((prev) => prev.slice(0, -1));
+                    }
+                  }}
+                  style={{ maxWidth: 340 }}
+                  placeholder="输入标签后回车创建，或输入关键字检索已有标签…"
+                />
+                {tagFocused && tagSuggestions.length > 0 && (
+                  <div className="tag-suggest">
+                    {tagSuggestions.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className="tag-suggest-item"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => addTagByName(t.name)}
+                      >
+                        <span className="tag-suggest-name">#{t.name}</span>
+                        <span className="tag-suggest-tag">已有</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="editor-field editor-toggles">
-                <div className="editor-label">选项</div>
-                <div className="editor-toggle-group">
-                  <label className="editor-toggle">
-                    <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
-                    <span className="toggle-track"><span className="toggle-thumb" /></span>
-                    置顶
-                  </label>
-                  <label className="editor-toggle">
-                    <input type="checkbox" checked={commentsEnabled} onChange={(e) => setCommentsEnabled(e.target.checked)} />
-                    <span className="toggle-track"><span className="toggle-thumb" /></span>
-                    开启评论
-                  </label>
-                </div>
+              <div className="tag-selected">
+                {selectedTags.length === 0 ? (
+                  <span className="muted" style={{ fontSize: 13 }}>还没有标签</span>
+                ) : selectedTags.map((t) => (
+                  <span key={t.id} className="chip">
+                    #{t.name}
+                    <button
+                      className="chip-x"
+                      title={`移除 ${t.name}`}
+                      onClick={() => setTagIds((prev) => prev.filter((x) => x !== t.id))}
+                    >×</button>
+                  </span>
+                ))}
               </div>
             </div>
-          </div>
 
-          <div className="editor-card">
-            <label className="editor-label">标签</label>
-            <div className="tag-picks">
-              {tags.map((t) => (
-                <label key={t.id} className={`tag-pick${tagIds.includes(t.id) ? ' on' : ''}`}>
-                  <input type="checkbox" checked={tagIds.includes(t.id)} onChange={() => toggleTag(t.id)} />
-                  {t.name}
+            <div className="editor-toggles" style={{ marginTop: 16 }}>
+              <div className="editor-label">选项</div>
+              <div className="editor-toggle-group">
+                <label className="editor-toggle">
+                  <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
+                  <span className="toggle-track"><span className="toggle-thumb" /></span>
+                  置顶
                 </label>
-              ))}
-              {tags.length === 0 && <span className="muted">暂无标签</span>}
+                <label className="editor-toggle">
+                  <input type="checkbox" checked={commentsEnabled} onChange={(e) => setCommentsEnabled(e.target.checked)} />
+                  <span className="toggle-track"><span className="toggle-thumb" /></span>
+                  开启评论
+                </label>
+              </div>
             </div>
-          </div>
-
-          <div className="editor-card">
-            <label className="editor-label">正文（Markdown）</label>
-            <div className="md-toolbar">
-              <button type="button" onClick={() => wrapSelection('**', '**')} title="粗体">B</button>
-              <button type="button" onClick={() => wrapSelection('*', '*')} title="斜体">I</button>
-              <button type="button" onClick={() => wrapSelection('~~', '~~')} title="删除线">S</button>
-              <button type="button" onClick={() => wrapSelection('`', '`')} title="行内代码"><code>{}</code></button>
-              <span className="md-toolbar-sep" />
-              <button type="button" onClick={() => wrapSelection('# ', '')} title="H1">H1</button>
-              <button type="button" onClick={() => wrapSelection('## ', '')} title="H2">H2</button>
-              <button type="button" onClick={() => wrapSelection('### ', '')} title="H3">H3</button>
-              <span className="md-toolbar-sep" />
-              <button type="button" onClick={() => wrapSelection('[', ']()')} title="链接">链接</button>
-              <button type="button" onClick={() => wrapSelection('![', ']()')} title="图片">图片</button>
-              <span className="md-toolbar-sep" />
-              <button type="button" onClick={() => wrapSelection('- ', '')} title="无序列表">• 列表</button>
-              <button type="button" onClick={() => wrapSelection('1. ', '')} title="有序列表">1. 列表</button>
-              <button type="button" onClick={() => wrapSelection('> ', '')} title="引用">引用</button>
-              <span className="md-toolbar-sep" />
-              <button type="button" onClick={() => wrapSelection('```\n', '\n```\n')} title="代码块">代码块</button>
-              <button type="button" onClick={() => wrapSelection('| 列1 | 列2 |\n|---|---|\n|  |  |', '')} title="表格">表格</button>
-              <button type="button" onClick={() => wrapSelection('---\n', '')} title="分隔线">—</button>
-              <button type="button" onClick={() => wrapSelection('- [ ] ', '')} title="任务列表">☐ 任务</button>
-            </div>
-            <textarea className="md" value={content} onChange={(e) => setContent(e.target.value)} placeholder="开始书写你的想法…" />
-          </div>
-
-          <div className="editor-card">
-            <label className="editor-label">摘要</label>
-            <textarea className="editor-input" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="简要描述这篇文章…" rows={3} />
           </div>
 
           <details className="editor-card editor-seo">
@@ -285,6 +337,13 @@ export default function PostEditor() {
             <button className="btn ghost" onClick={() => navigate('/')}>取消</button>
           </div>
         </>
+      )}
+      {coverPicker && (
+        <ResourcePicker
+          mode="image"
+          onSelect={(item) => { setCoverImage(item.url); setCoverPicker(false); }}
+          onClose={() => setCoverPicker(false)}
+        />
       )}
     </div>
   );
