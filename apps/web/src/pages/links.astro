@@ -90,7 +90,7 @@ function initial(name: string): string {
         我会尽快审核并收录。
       </p>
       {config?.features.comments.walineServerURL || import.meta.env.PUBLIC_WALINE_SERVER_URL ? (
-        <div id="waline"></div>
+        <div id="waline" data-waline-url={config?.features.comments.walineServerURL || import.meta.env.PUBLIC_WALINE_SERVER_URL}></div>
       ) : (
         <p class="text-sm text-muted-foreground">评论系统尚未配置 Waline 服务地址（请在后台「评论系统」中设置）。</p>
       )}
@@ -99,16 +99,16 @@ function initial(name: string): string {
   )}
 </Layout>
 
-<script define:vars={{ walineServerURL: config?.features.comments.walineServerURL || import.meta.env.PUBLIC_WALINE_SERVER_URL || '' }}>
+<script>
   import { init } from '@waline/client';
   import '@waline/client/style';
 
   function initComments() {
     const el = document.getElementById('waline');
-    if (el && walineServerURL) {
+    if (el) {
       init({
         el: '#waline',
-        serverURL: walineServerURL,
+        serverURL: el.dataset.walineUrl,
         path: '/links',
         lang: 'zh-CN',
         dark: 'html[data-theme="dark"]',

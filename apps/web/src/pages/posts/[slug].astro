@@ -141,7 +141,7 @@ function formatDateFull(dateStr: string | null | Date): string {
           />
         )}
         {comments.provider === 'waline' && configuredWaline && (
-          <div id="waline" data-waline-path={`/posts/${slug}`}></div>
+          <div id="waline" data-waline-path={`/posts/${slug}`} data-waline-url={configuredWaline}></div>
         )}
         {!['giscus', 'utterances', 'waline'].includes(comments.provider) && (
           <p class="comments-note">评论系统尚未配置（请在后台「评论系统」中配置）。</p>
@@ -160,16 +160,16 @@ function formatDateFull(dateStr: string | null | Date): string {
   </article>
 </Layout>
 
-<script define:vars={{ walineServerURL: configuredWaline }}>
+<script>
   import { init } from '@waline/client';
   import '@waline/client/style';
 
   function initComments() {
     const el = document.getElementById('waline');
-    if (el && walineServerURL) {
+    if (el) {
       init({
         el: '#waline',
-        serverURL: walineServerURL,
+        serverURL: el.dataset.walineUrl,
         path: el.dataset.walinePath || window.location.pathname,
         lang: 'zh-CN',
         dark: 'html[data-theme="dark"]',
