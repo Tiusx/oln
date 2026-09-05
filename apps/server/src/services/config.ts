@@ -116,7 +116,7 @@ export const siteConfigSchema = z.object({
       giscusCategory: z.string().default(''),
       giscusCategoryId: z.string().default(''),
       utterancesRepo: z.string().default(''),
-      walineServerURL: z.string().default('https://waline.tius.cn'),
+      walineServerURL: z.string().default(''),
     }).default({}),
     newsletter: z.object({
       enabled: z.boolean().default(false),

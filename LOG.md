@@ -29,6 +29,7 @@
 - **API**：`pageSchema` 支持 `commentsEnabled`；新增 `PATCH /admin/api/content/pages/:id/comments` 一键切换；公开 `GET /api/public/pages/:slug` 返回 `commentsEnabled`。
 - **后台**：新增页面时勾选「允许评论」；列表行显示「开/关评论」徽章 + 一键切换按钮；编辑表单可改评论开关。
 - **前台**：`apps/web/src/pages/[slug].astro` 按页面 `commentsEnabled`（且评论系统开启）渲染 giscus/utterances/waline 评论区（含 waline 客户端脚本）。
+- **修复**：`about.astro`（静态页优先于 `[slug]`）补上评论开关注与 Waline 初始化；waline 地址改用 `data-waline-url` 注入（规避 `define:vars` 内联 import 在 View Transitions 下崩溃）；`walineServerURL` schema 默认值改为空（不再硬编码私有服务地址）。
 - 默认 `true`，存量页面（旧库无该列）自动按「开评论」处理。
 - 三个 app 均通过 build / typecheck。
 
