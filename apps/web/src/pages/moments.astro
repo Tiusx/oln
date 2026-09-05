@@ -1,0 +1,150 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { api, type Moment } from '@/lib/api';
+
+const config = await api.config().catch(() => null);
+const perPage = 20;
+const pageParam = Math.max(Number(Astro.url.searchParams.get('page') || 1), 1);
+
+let data: Awaited<ReturnType<typeof api.moments>> | null = null;
+let error = false;
+try {
+  data = await api.moments(pageParam, perPage);
+} catch {
+  error = true;
+}
+
+const items = data?.items ?? [];
+const total = data?.total ?? 0;
+const totalPages = Math.max(1, Math.ceil(total / perPage));
+const currentPage = Math.min(pageParam, totalPages);
+const baseUrl = '/moments';
+const pageTitle = currentPage > 1 ? `动态 - 第 ${currentPage} 页` : '动态';
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${`0${d.getMonth() + 1}`.slice(-2)}.${`0${d.getDate()}`.slice(-2)} ${`0${d.getHours()}`.slice(-2)}:${`0${d.getMinutes()}`.slice(-2)}`;
+}
+---
+
+<Layout title={pageTitle} description={config?.seo.description} config={config}>
+  <section class="mx-auto max-w-2xl px-6 pt-12 pb-12">
+    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-3 font-serif">动态</h1>
+    <p class="text-base text-muted-foreground mb-10">共 {total} 条，记录所见所感。</p>
+
+    {error && (
+      <p class="text-muted-foreground my-4 text-xs">（服务器未连接）</p>
+    )}
+
+    {items.length > 0 ? (
+      <div class="moments-timeline">
+        {items.map((m: Moment) => (
+          <article class="moment">
+            <span class="moment-dot" aria-hidden="true"></span>
+            {m.pinned && <span class="moment-pin">置顶</span>}
+            <div class="moment-content prose max-w-none" set:html={m.html} />
+            <time class="moment-time" data-rel={m.createdAt}>{formatDate(m.createdAt)}</time>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <p class="text-muted-foreground py-8">暂无动态。</p>
+    )}
+
+    {totalPages > 1 && (
+      <nav class="flex items-center justify-between mt-10 pt-6 border-t border-border text-sm font-serif">
+        {currentPage > 1 ? (
+          <a href={currentPage === 2 ? baseUrl : `${baseUrl}?page=${currentPage - 1}`} class="hover:underline underline-offset-4 text-foreground">
+            &larr; 上一页
+          </a>
+        ) : (
+          <span class="text-muted-foreground">&larr; 上一页</span>
+        )}
+        <span class="text-muted-foreground">第 {currentPage} / {totalPages} 页</span>
+        {currentPage < totalPages ? (
+          <a href={`${baseUrl}?page=${currentPage + 1}`} class="hover:underline underline-offset-4 text-foreground">
+            下一页 &rarr;
+          </a>
+        ) : (
+          <span class="text-muted-foreground">下一页 &rarr;</span>
+        )}
+      </nav>
+    )}
+  </section>
+</Layout>
+
+<script>
+  function relativeTime(ts: string): string {
+    const diff = Date.now() - new Date(ts).getTime();
+    if (diff < 0) return '刚刚';
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return '刚刚';
+    if (min < 60) return `${min} 分钟前`;
+    const hour = Math.floor(min / 60);
+    if (hour < 24) return `${hour} 小时前`;
+    const day = Math.floor(hour / 24);
+    if (day < 30) return `${day} 天前`;
+    const month = Math.floor(day / 30);
+    if (month < 12) return `${month} 个月前`;
+    return `${Math.floor(month / 12)} 年前`;
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    document.querySelectorAll<HTMLElement>('[data-rel]').forEach((el) => {
+      const ts = el.dataset.rel;
+      if (ts) el.textContent = relativeTime(ts);
+    });
+  });
+</script>
+
+<style>
+  .moments-timeline {
+    position: relative;
+    padding-left: 28px;
+  }
+  .moments-timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: var(--color-border);
+  }
+  .moment {
+    position: relative;
+    margin-bottom: 34px;
+  }
+  .moment-dot {
+    position: absolute;
+    left: -28px;
+    top: 6px;
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: var(--color-foreground);
+    border: 2px solid var(--color-background);
+    box-shadow: 0 0 0 1px var(--color-border);
+  }
+  .moment-pin {
+    display: inline-block;
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 7px;
+    border-radius: 9999px;
+    background: var(--color-muted);
+    color: var(--color-secondary);
+    margin-bottom: 8px;
+  }
+  .moment-content {
+    font-size: 15px;
+  }
+  .moment-time {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--color-muted-foreground);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

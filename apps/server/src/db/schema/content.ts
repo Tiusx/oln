@@ -69,11 +69,31 @@ export const pages = sqliteTable(
     content: text('content').notNull().default(''),
     contentHtml: text('content_html'),
     status: text('status').notNull().default('published'), // draft | published
+    commentsEnabled: integer('comments_enabled', { mode: 'boolean' }).notNull().default(true),
     showInMenu: integer('show_in_menu', { mode: 'boolean' }).notNull().default(false),
     menuOrder: integer('menu_order').notNull().default(0),
     ...timestamps,
   },
   (t) => ({
     pages_slug: index('idx_pages_slug').on(t.slug),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Moments (朋友圈 / 说说 — short status updates on a timeline)
+// ---------------------------------------------------------------------------
+export const moments = sqliteTable(
+  'moments',
+  {
+    id: text('id').primaryKey(),
+    content: text('content').notNull().default(''),
+    contentHtml: text('content_html'),
+    status: text('status').notNull().default('draft'), // draft | published
+    pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
+    ...timestamps,
+  },
+  (t) => ({
+    moments_status: index('idx_moments_status').on(t.status),
+    moments_created: index('idx_moments_created').on(t.createdAt),
   }),
 );

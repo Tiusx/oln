@@ -8,6 +8,7 @@ export interface PageInputData {
   slug?: string;
   content?: string;
   status?: 'draft' | 'published';
+  commentsEnabled?: boolean;
   showInMenu?: boolean;
   menuOrder?: number;
 }
@@ -48,6 +49,7 @@ export async function createPage(db: AppDb, data: PageInputData) {
     slug,
     content: data.content ?? '',
     status: data.status ?? 'published',
+    commentsEnabled: data.commentsEnabled ?? true,
     showInMenu: data.showInMenu ?? false,
     menuOrder: data.menuOrder ?? 0,
   });
@@ -65,10 +67,18 @@ export async function updatePage(db: AppDb, id: string, data: PageInputData) {
       slug,
       content: data.content ?? existing.content,
       status: data.status ?? existing.status,
+      commentsEnabled: data.commentsEnabled ?? existing.commentsEnabled,
       showInMenu: data.showInMenu ?? existing.showInMenu,
       menuOrder: data.menuOrder ?? existing.menuOrder,
     })
     .where(eq(pages.id, id));
+  return { id };
+}
+
+export async function updatePageComments(db: AppDb, id: string, commentsEnabled: boolean) {
+  const existing = await db.select().from(pages).where(eq(pages.id, id)).get();
+  if (!existing) return null;
+  await db.update(pages).set({ commentsEnabled }).where(eq(pages.id, id));
   return { id };
 }
 

@@ -9,6 +9,7 @@ export default function PagesPage() {
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
+  const [newComments, setNewComments] = useState(true);
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
@@ -58,11 +59,12 @@ export default function PagesPage() {
       return;
     }
     try {
-      await api.createPage({ title: newTitle.trim(), content: newContent });
+      await api.createPage({ title: newTitle.trim(), content: newContent, commentsEnabled: newComments });
       toast('页面已创建', 'success');
       setCreating(false);
       setNewTitle('');
       setNewContent('');
+      setNewComments(true);
       load();
     } catch (e: any) {
       toast(e.message || '创建失败', 'error');
@@ -93,9 +95,15 @@ export default function PagesPage() {
             <label className="editor-label">内容（Markdown）</label>
             <MarkdownEditor value={newContent} onChange={setNewContent} placeholder="输入页面内容…" minHeight={180} />
           </div>
-          <div className="flex" style={{ marginTop: 10, justifyContent: 'flex-end' }}>
-            <button className="btn ghost" onClick={() => setCreating(false)}>取消</button>
-            <button className="btn" onClick={create}>创建页面</button>
+          <div className="flex" style={{ marginTop: 14, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+            <label className="flex" style={{ gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+              <input type="checkbox" checked={newComments} onChange={(e) => setNewComments(e.target.checked)} />
+              允许评论
+            </label>
+            <div className="flex" style={{ gap: 8 }}>
+              <button className="btn ghost" onClick={() => setCreating(false)}>取消</button>
+              <button className="btn" onClick={create}>创建页面</button>
+            </div>
           </div>
         </section>
       )}
@@ -130,17 +138,29 @@ function PageRow({ page, inMenu, onSaved, onAddToMenu, onRemoveFromMenu }: {
   const [title, setTitle] = useState(page.title);
   const [slug, setSlug] = useState(page.slug);
   const [content, setContent] = useState(page.content);
+  const [commentsEnabled, setCommentsEnabled] = useState(page.commentsEnabled !== false);
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
   async function save() {
     try {
-      await api.updatePage(page.id, { title, slug, content });
+      await api.updatePage(page.id, { title, slug, content, commentsEnabled });
       toast('页面已保存', 'success');
       setEditing(false);
       onSaved();
     } catch (e: any) {
       toast(e.message || '保存失败', 'error');
+    }
+  }
+
+  async function toggleComments() {
+    const next = page.commentsEnabled !== false ? false : true;
+    try {
+      await api.updatePageComments(page.id, next);
+      toast(next ? '已开启评论' : '已关闭评论', 'success');
+      onSaved();
+    } catch (e: any) {
+      toast(e.message || '操作失败', 'error');
     }
   }
 
@@ -165,10 +185,15 @@ function PageRow({ page, inMenu, onSaved, onAddToMenu, onRemoveFromMenu }: {
             <span className="dot">·</span>
             {page.status === 'published' ? <span className="pill ok">已发布</span> : <span className="pill warn">草稿</span>}
             <span className="dot">·</span>
+            <span className="pill" style={page.commentsEnabled !== false ? { background: '#e7f6ee', color: 'var(--success)' } : { background: 'var(--bg-soft)', color: 'var(--muted)' }}>{page.commentsEnabled !== false ? '开评论' : '关评论'}</span>
+            <span className="dot">·</span>
             {inMenu ? <span className="pill" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>在导航</span> : <span className="pill" style={{ background: 'var(--bg-soft)', color: 'var(--muted)' }}>不在导航</span>}
           </span>
         </div>
         <div className="page-row-actions">
+          <button className={`btn sm ${page.commentsEnabled !== false ? 'ghost' : ''}`} onClick={toggleComments}>
+            {page.commentsEnabled !== false ? '关闭评论' : '开启评论'}
+          </button>
           {inMenu
             ? <button className="btn sm ghost" onClick={() => onRemoveFromMenu(page)}>移出导航</button>
             : <button className="btn sm" onClick={() => onAddToMenu(page)}>+ 加入导航</button>}
@@ -203,9 +228,15 @@ function PageRow({ page, inMenu, onSaved, onAddToMenu, onRemoveFromMenu }: {
         <label className="editor-label">内容（Markdown）</label>
         <MarkdownEditor value={content} onChange={setContent} minHeight={260} />
       </div>
-      <div className="flex" style={{ marginTop: 10 }}>
-        <button className="btn" onClick={save}>保存</button>
-        <button className="btn ghost" onClick={() => setEditing(false)}>取消</button>
+      <div className="flex" style={{ marginTop: 10, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <label className="flex" style={{ gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+          <input type="checkbox" checked={commentsEnabled} onChange={(e) => setCommentsEnabled(e.target.checked)} />
+          允许评论
+        </label>
+        <div className="flex" style={{ gap: 8 }}>
+          <button className="btn ghost" onClick={() => setEditing(false)}>取消</button>
+          <button className="btn" onClick={save}>保存</button>
+        </div>
       </div>
     </div>
   );

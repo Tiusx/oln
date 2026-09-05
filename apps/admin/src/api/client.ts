@@ -119,6 +119,8 @@ changePassword: (currentPassword: string, newPassword: string) =>
   updatePage: (id: string, data: any) =>
     request<ApiEnvelope<{ id: string }>>('PUT', `/content/pages/${id}`, data),
   deletePage: (id: string) => request<ApiEnvelope<null>>('DELETE', `/content/pages/${id}`),
+  updatePageComments: (id: string, commentsEnabled: boolean) =>
+    request<ApiEnvelope<{ id: string }>>('PATCH', `/content/pages/${id}/comments`, { commentsEnabled }),
   listLinks: () => request<ApiEnvelope<any[]>>('GET', '/content/links'),
   createLink: (data: any) => request<ApiEnvelope<{ id: string }>>('POST', '/content/links', data),
   updateLink: (id: string, data: any) =>
@@ -128,6 +130,20 @@ changePassword: (currentPassword: string, newPassword: string) =>
     request<ApiEnvelope<any[]>>('GET', `/content/subscribers${q ? `?q=${q}` : ''}`),
   deleteSubscriber: (id: string) =>
     request<ApiEnvelope<null>>('DELETE', `/content/subscribers/${id}`),
+
+  // moments (朋友圈 / 说说)
+  listMoments: (params: Record<string, string> = {}) =>
+    request<ApiEnvelope<{ items: any[]; total: number; page: number; limit: number }>>(
+      'GET',
+      `/content/moments?${new URLSearchParams(params)}`,
+    ),
+  getMoment: (id: string) => request<ApiEnvelope<any>>('GET', `/content/moments/${id}`),
+  createMoment: (data: any) => request<ApiEnvelope<{ id: string }>>('POST', '/content/moments', data),
+  updateMoment: (id: string, data: any) =>
+    request<ApiEnvelope<{ id: string }>>('PUT', `/content/moments/${id}`, data),
+  updateMomentStatus: (id: string, status: 'draft' | 'published') =>
+    request<ApiEnvelope<{ id: string }>>('PATCH', `/content/moments/${id}/status`, { status }),
+  deleteMoment: (id: string) => request<ApiEnvelope<null>>('DELETE', `/content/moments/${id}`),
 
   // site config
   getConfig: () => request<ApiEnvelope<any>>('GET', '/config'),

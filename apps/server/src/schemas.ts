@@ -48,8 +48,13 @@ export const pageSchema = z.object({
   slug: z.string().min(1).max(200).optional(),
   content: z.string().default(''),
   status: z.enum(['draft', 'published']).default('published'),
+  commentsEnabled: z.boolean().optional().default(true),
   menuOrder: z.number().optional().default(0),
   showInMenu: z.boolean().optional().default(false),
+});
+
+export const pageCommentsSchema = z.object({
+  commentsEnabled: z.boolean(),
 });
 
 export const linkSchema = z.object({
@@ -59,6 +64,12 @@ export const linkSchema = z.object({
   avatar: z.string().optional().nullable(),
   order: z.number().optional().default(0),
   status: z.enum(['active', 'hidden']).default('active'),
+});
+
+export const momentSchema = z.object({
+  content: z.string().default(''),
+  status: z.enum(['draft', 'published']).default('draft'),
+  pinned: z.boolean().default(false),
 });
 
 export const subscriberCreateSchema = z.object({

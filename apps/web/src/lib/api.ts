@@ -78,6 +78,7 @@ export interface Page {
   slug: string;
   content: string;
   status: string;
+  commentsEnabled?: boolean;
   showInMenu: boolean;
   html?: string;
 }
@@ -88,6 +89,21 @@ export interface LinkItem {
   url: string;
   description: string | null;
   avatar: string | null;
+}
+
+export interface Moment {
+  id: string;
+  content: string;
+  html: string;
+  pinned: boolean;
+  createdAt: string;
+}
+
+export interface MomentListResult {
+  items: Moment[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export const api = {
@@ -116,5 +132,9 @@ export const api = {
   hitokoto: async (): Promise<{ content: string; creator: string | null } | null> => {
     const res = await getOrNull<Envelope<{ content: string; creator: string | null }>>('/hitokoto');
     return res ? res.data : null;
+  },
+  moments: async (page = 1, limit = 20): Promise<MomentListResult> => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    return (await get<Envelope<MomentListResult>>(`/moments?${params}`)).data;
   },
 };

@@ -1111,7 +1111,8 @@ textarea.editor-input { resize: vertical; min-height: 70px; line-height: 1.6; }
 .page-row-meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
 .page-row-meta .path { color: var(--faint); font-family: ui-monospace, monospace; font-size: 12.5px; }
 .page-row-meta .dot { color: var(--faint); }
-.page-row-actions { display: flex; gap: 8px; }
+.page-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.moment-preview { font-size: 14.5px; line-height: 1.6; color: var(--text); word-break: break-word; }
 .page-row.editing { flex-direction: column; align-items: stretch; background: #fbfcfe; border: 1px solid var(--accent); border-radius: 14px; margin: 8px 0; padding: 16px; }
 .add-page-panel { padding: 18px 20px; }
 .menu-toggle-field { justify-content: center; }

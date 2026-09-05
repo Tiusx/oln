@@ -1,12 +1,13 @@
 import { Hono } from 'hono';
 import { withDb, loadUser, requireAuth, type AppBindings } from '../middleware/auth';
 import { parseBody, ApiError } from '../lib/http';
-import { pageSchema, linkSchema, subscriberCreateSchema } from '../schemas';
+import { pageSchema, linkSchema, subscriberCreateSchema, momentSchema, postStatusSchema, pageCommentsSchema } from '../schemas';
 import {
   listPages,
   getPage,
   createPage,
   updatePage,
+  updatePageComments,
   deletePage,
   listLinks,
   createLink,
@@ -16,6 +17,14 @@ import {
   addSubscriber,
   deleteSubscriber,
 } from '../services/content';
+import {
+  listMoments,
+  getMoment,
+  createMoment,
+  updateMoment,
+  updateMomentStatus,
+  deleteMoment,
+} from '../services/moments';
 
 export function contentRoutes(): Hono<AppBindings> {
   const app = new Hono<AppBindings>();
@@ -25,6 +34,11 @@ export function contentRoutes(): Hono<AppBindings> {
 
   // ---- Pages ----
   app.get('/pages', async (c) => c.json({ success: true, data: await listPages(c.get('db')) }));
+  app.patch('/pages/:id/comments', async (c) => {
+    const result = await updatePageComments(c.get('db'), c.req.param('id'), (await parseBody(c.req, pageCommentsSchema)).commentsEnabled);
+    if (!result) throw new ApiError(404, 'Page not found');
+    return c.json({ success: true, data: result });
+  });
   app.get('/pages/:id', async (c) => {
     const row = await getPage(c.get('db'), c.req.param('id'));
     if (!row) throw new ApiError(404, 'Page not found');
@@ -63,6 +77,39 @@ export function contentRoutes(): Hono<AppBindings> {
   );
   app.delete('/subscribers/:id', async (c) => {
     await deleteSubscriber(c.get('db'), c.req.param('id'));
+    return c.json({ success: true });
+  });
+
+  // ---- Moments (朋友圈 / 说说) ----
+  app.get('/moments', async (c) => {
+    const data = await listMoments(c.get('db'), {
+      status: c.req.query('status'),
+      q: c.req.query('q'),
+      page: Number(c.req.query('page') || 1),
+      limit: Number(c.req.query('limit') || 50),
+    });
+    return c.json({ success: true, data });
+  });
+  app.get('/moments/:id', async (c) => {
+    const row = await getMoment(c.get('db'), c.req.param('id'));
+    if (!row) throw new ApiError(404, 'Moment not found');
+    return c.json({ success: true, data: row });
+  });
+  app.post('/moments', async (c) =>
+    c.json({ success: true, data: await createMoment(c.get('db'), await parseBody(c.req, momentSchema)) }),
+  );
+  app.put('/moments/:id', async (c) => {
+    const result = await updateMoment(c.get('db'), c.req.param('id'), await parseBody(c.req, momentSchema));
+    if (!result) throw new ApiError(404, 'Moment not found');
+    return c.json({ success: true, data: result });
+  });
+  app.patch('/moments/:id/status', async (c) => {
+    const result = await updateMomentStatus(c.get('db'), c.req.param('id'), (await parseBody(c.req, postStatusSchema)).status);
+    if (!result) throw new ApiError(404, 'Moment not found');
+    return c.json({ success: true, data: result });
+  });
+  app.delete('/moments/:id', async (c) => {
+    await deleteMoment(c.get('db'), c.req.param('id'));
     return c.json({ success: true });
   });
 

@@ -38,6 +38,7 @@ const DEFAULT_BUILTIN_LINKS = [
   { label: '归档', url: '/archive', enabled: true },
   { label: '标签', url: '/tags', enabled: true },
   { label: '友链', url: '/links', enabled: true },
+  { label: '动态', url: '/moments', enabled: true },
   { label: '关于', url: '/about', enabled: true },
   { label: '留言板', url: '/message', enabled: true },
   { label: '一言', url: '/hitokoto', enabled: true },
@@ -132,6 +133,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = siteConfigSchema.parse({ basic: {
 
 const SETTINGS_KEY = 'site';
 const CONFIG_CACHE_KEY = 'config:site';
+const SETTINGS_MOMENTS_NAV_KEY = 'config.moments_nav_added';
 
 export interface PageLike {
   id?: string;
@@ -238,7 +240,24 @@ export async function loadConfig(db: AppDb): Promise<SiteConfig> {
   const parsed = siteConfigSchema.safeParse(raw);
   if (!parsed.success) return DEFAULT_SITE_CONFIG;
   const config = parsed.data;
-  return migrateNavToUnified(config);
+  return ensureMomentsNav(db, migrateNavToUnified(config));
+}
+
+/**
+ * One-time backfill for installs that already persisted their nav.menu list:
+ * append the built-in 动态 (/moments) entry if it is missing, then mark the
+ * setting so deliberate removals are never re-added. Idempotent.
+ */
+async function ensureMomentsNav(db: AppDb, config: SiteConfig): Promise<SiteConfig> {
+  const marker = await getSetting(db, SETTINGS_MOMENTS_NAV_KEY);
+  if (marker) return config;
+  const menu: any[] = config.nav.menu || [];
+  if (!menu.some((m) => m.url === '/moments')) {
+    menu.push({ type: 'builtin' as const, label: '动态', url: '/moments', newWindow: false, enabled: true });
+    config = { ...config, nav: { ...config.nav, menu } };
+  }
+  await setSetting(db, SETTINGS_MOMENTS_NAV_KEY, '1');
+  return config;
 }
 
 /** Load the config with a KV read-through cache (public endpoints use this). */

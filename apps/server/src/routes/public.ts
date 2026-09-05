@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
-import { posts, tags, categories, pages, links, hitokoto } from '../db/schema';
+import { posts, tags, categories, pages, links, hitokoto, moments } from '../db/schema';
 import { withDb, type AppBindings } from '../middleware/auth';
 import { loadConfigCached } from '../services/config';
 import { renderMarkdown } from '../services/markdown';
@@ -135,7 +135,12 @@ export function publicRoutes(): Hono<AppBindings> {
     if (!row || row.status !== 'published') throw new ApiError(404, 'Page not found');
     return c.json({
       success: true,
-      data: { title: row.title, slug: row.slug, html: renderMarkdown(row.content) },
+      data: {
+        title: row.title,
+        slug: row.slug,
+        html: renderMarkdown(row.content),
+        commentsEnabled: !!row.commentsEnabled,
+      },
     });
   });
 
@@ -149,6 +154,33 @@ export function publicRoutes(): Hono<AppBindings> {
       .orderBy(links.order, links.name)
       .all();
     return c.json({ success: true, data: rows });
+  });
+
+  // GET /api/public/moments?page=&limit= — published moments (朋友圈/说说)
+  app.get('/moments', async (c) => {
+    const db = c.get('db');
+    const page = Math.max(Number(c.req.query('page') || 1), 1);
+    const limit = Math.min(Math.max(Number(c.req.query('limit') || 20), 1), 50);
+    const offset = (page - 1) * limit;
+    const where = eq(moments.status, 'published');
+    const total =
+      (await db.select({ count: sql<number>`count(*)` }).from(moments).where(where).get())?.count ?? 0;
+    const rows = await db
+      .select()
+      .from(moments)
+      .where(where)
+      .orderBy(desc(moments.pinned), desc(moments.createdAt))
+      .limit(limit)
+      .offset(offset)
+      .all();
+    const items = rows.map((m) => ({
+      id: m.id,
+      content: m.content,
+      html: m.contentHtml ?? renderMarkdown(m.content),
+      pinned: !!m.pinned,
+      createdAt: new Date(m.createdAt).toISOString(),
+    }));
+    return c.json({ success: true, data: { items, total, page, limit } });
   });
 
   // GET /api/public/hitokoto — random hitokoto

@@ -17,6 +17,7 @@ import Navigation from './pages/Navigation';
 import Author from './pages/Author';
 import Storage from './pages/Storage';
 import Resources from './pages/Resources';
+import Moments from './pages/Moments';
 
 interface AuthCtx {                     // ★ 先定义接口
   user: User | null;
@@ -74,6 +75,7 @@ export default function App() {
                   <Route path="/posts/:id" element={<PostEditor />} />
                   <Route path="/taxonomy" element={<Taxonomy />} />
                   <Route path="/pages" element={<PagesPage />} />
+                  <Route path="/moments" element={<Moments />} />
                   <Route path="/links" element={<Links />} />
                   <Route path="/subscribers" element={<Subscribers />} />
                   <Route path="/storage" element={<Storage />} />
@@ -100,6 +102,7 @@ function Sidebar({ onLogout, open, onClose }: { onLogout: () => void; open: bool
       items: [
         { to: '/', label: '文章管理', icon: 'M4 5h3v3H4zM4 10h3v3H4zM4 15h3v3H4zM10 5h10v2H10zM10 10h10v2H10zM10 15h10v2H10z' },
         { to: '/taxonomy', label: '分类 / 标签', icon: 'M3 5h7l2 2h9v10H3z' },
+        { to: '/moments', label: '动态（朋友圈）', icon: 'M12 2a10 10 0 100 20 10 10 0 000-20zm4.5 12.5a1 1 0 01-1 1H9.2a1 1 0 01-.8-1.6l2.2-3V9a1 1 0 010-2h1a1 1 0 011 1v2l2.2 3a1 1 0 011.4.3z' },
       ],
     },
     {

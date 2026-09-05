@@ -89,26 +89,26 @@ function initial(name: string): string {
         <strong class="text-foreground">链接</strong> + <strong class="text-foreground">一句简介</strong>，
         我会尽快审核并收录。
       </p>
-      <div id="waline"></div>
+      {config?.features.comments.walineServerURL || import.meta.env.PUBLIC_WALINE_SERVER_URL ? (
+        <div id="waline"></div>
+      ) : (
+        <p class="text-sm text-muted-foreground">评论系统尚未配置 Waline 服务地址（请在后台「评论系统」中设置）。</p>
+      )}
     </section>
   </section>
   )}
 </Layout>
 
-<script>
+<script define:vars={{ walineServerURL: config?.features.comments.walineServerURL || import.meta.env.PUBLIC_WALINE_SERVER_URL || '' }}>
   import { init } from '@waline/client';
   import '@waline/client/style';
 
-  const serverURL =
-    import.meta.env.PUBLIC_WALINE_SERVER_URL ||
-    'https://waline.tius.cn';
-
   function initComments() {
     const el = document.getElementById('waline');
-    if (el) {
+    if (el && walineServerURL) {
       init({
         el: '#waline',
-        serverURL,
+        serverURL: walineServerURL,
         path: '/links',
         lang: 'zh-CN',
         dark: 'html[data-theme="dark"]',

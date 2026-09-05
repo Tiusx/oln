@@ -32,10 +32,41 @@ function slugifyHeading(s: string): string {
     .replace(/^-|-$/g, '');
 }
 
+// Embed-only allowlist: iframe embeds from known video hosts are passed through
+// (sanitized), everything else is escaped as before.
+const IFRAME_ALLOW_HOSTS = [
+  'player.bilibili.com',
+  'www.youtube.com',
+  'www.youtube-nocookie.com',
+];
+
+function sanitizeIframe(raw: string): string | null {
+  const m = /^\s*<iframe\b([^>]*)>\s*<\/iframe>\s*$/i.exec(raw);
+  if (!m) return null;
+  const srcMatch = /\bsrc=(["'])(.*?)\1/i.exec(m[1]);
+  if (!srcMatch) return null;
+  let src = srcMatch[2];
+  if (src.startsWith('//')) src = 'https:' + src;
+  let host: string | null = null;
+  try {
+    host = new URL(src).hostname;
+  } catch {
+    return null;
+  }
+  if (!IFRAME_ALLOW_HOSTS.includes(host as string)) return null;
+  const titleMatch = /\btitle=(["'])(.*?)\1/i.exec(m[1]);
+  const title = (titleMatch?.[2] ?? 'embedded video').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  return (
+    `<iframe src="${src.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" ` +
+    `title="${title}" allowfullscreen loading="lazy" scrolling="no" frameborder="no" ` +
+    `style="width:100%;aspect-ratio:16/9;border:0"></iframe>`
+  );
+}
+
 const renderer = new Renderer();
 
-// Preserve old safe posture: never pass raw HTML through.
-renderer.html = ({ text }: { text: string }) => escapeHtml(text);
+// Preserve safe posture: never pass raw HTML through, except whitelisted iframes.
+renderer.html = ({ text }: { text: string }) => sanitizeIframe(text) ?? escapeHtml(text);
 
 const mdInstance = new Marked(
   markedHighlight({
